@@ -20,7 +20,9 @@ const traitGroups = {
     { label: "Independence / Responsibility", max: 10 },
     { label: "Mental / Physical Health", max: 10 },
     { label: "Hygiene", max: 10 },
-    { label: "Wildcard Bonus", max: 25 },
+  ],
+  Extra: [
+    { label: "Wildcard Bonus", max: 25, description: "(quirks, magic, chemistry, mystery, freak factor)" },
   ],
 };
 
@@ -79,7 +81,7 @@ export default function App() {
             return (
               <div key={trait.label} className="mb-4">
                 <label className="block text-sm font-medium text-white mb-1">
-                  {trait.label} ({value}/{max})
+                  {trait.label} ({value}/{max}) {trait.description && <span className="text-gray-400 text-xs">{trait.description}</span>}
                 </label>
                 <input
                   type="range"
