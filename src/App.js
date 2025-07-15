@@ -1,145 +1,120 @@
 import { useState } from "react";
 import "./index.css";
 
-/* ---------- Trait data ---------- */
 const traitGroups = {
-  Appearance: [
+  "Figure (Appearance)": [
     { label: "Face", max: 20 },
     { label: "Hair", max: 10 },
     { label: "Legs", max: 10 },
-    { label: "Body Proportion", max: 10 },
+    { label: "Body Proportion", max: 10 }
   ],
-  "Personality & Mind": [
+  "Intellect (Personality & Mind)": [
     { label: "Intelligence", max: 15 },
     { label: "Humor", max: 15 },
     { label: "Confidence", max: 10 },
     { label: "Empathy / Kindness", max: 10 },
-    { label: "Communication", max: 10 },
+    { label: "Communication", max: 10 }
   ],
-  "Lifestyle & Values": [
+  "Nature (Lifestyle & Values)": [
     { label: "Ambition / Drive", max: 10 },
     { label: "Independence / Responsibility", max: 10 },
     { label: "Mental / Physical Health", max: 10 },
-    { label: "Hygiene", max: 10 },
+    { label: "Hygiene", max: 10 }
   ],
+  "Extra": [
+    { label: "Wildcard Bonus (quirks, magic, chemistry, mystery, freak factor)", max: 25 }
+  ]
 };
 
-const extraTraits = [
-  {
-    label: "Wildcard Bonus",
-    max: 25,
-    description: "(quirks, magic, chemistry, mystery, freak factor)",
-  },
-];
+const mainTraits = Object.values(traitGroups).flat().slice(0, -1); // All except wildcard
+const wildcardTrait = Object.values(traitGroups).flat().slice(-1); // Just wildcard
+const allTraits = [...mainTraits, ...wildcardTrait];
 
-/* flatten */
-const coreTraits = Object.values(traitGroups).flat();
-const allTraits = [...coreTraits, ...extraTraits];
-
-/* ---------- Tier logic ---------- */
 function getTier(score) {
-  if (score >= 150) return "God Tier — Marry her immediately.";
-  if (score >= 140) return "Elite — Too good to be true, investigate further.";
-  if (score >= 120) return "Exceptional — A rare gem, lock that down.";
-  if (score >= 90)  return "High Quality — Built different in all the right ways.";
-  if (score >= 50)  return "Average — There’s potential!";
-  return "Rough — Probably not the one for you.";
+  if (score >= 150) return "God Tier — Marry her immediately.";
+  if (score >= 140) return "Elite — Too good to be true, investigate further.";
+  if (score >= 120) return "Exceptional — A rare gem, lock that down.";
+  if (score >= 90) return "High Quality — Built different in all the right ways.";
+  if (score >= 50) return "Average — There’s potential!";
+  return "Rough — Probably not the one for you.";
 }
 
-/* ---------- Component ---------- */
 export default function App() {
   const [scores, setScores] = useState(Array(allTraits.length).fill(0));
 
-  const coreTotal = scores
-    .slice(0, coreTraits.length)
-    .reduce((s, v) => s + Number(v), 0);
-  const wildcard = scores[coreTraits.length];
-  const tier = getTier(coreTotal);
+  const mainTotal = scores.slice(0, mainTraits.length).reduce((sum, val) => sum + Number(val), 0);
+  const wildcardTotal = scores[allTraits.length - 1];
+  const tier = getTier(mainTotal);
 
-  const updateScore = (idx, val) => {
-    const next = [...scores];
-    next[idx] = val;
-    setScores(next);
-  };
-
-  /* gradient helper */
-  const bar = (pct) => {
-    const c =
-      pct <= 20 ? "#ef4444" :
-      pct <= 50 ? "#facc15" :
-                  "#22c55e";
-    return `linear-gradient(to right, ${c} ${pct}%, #1f2937 ${pct}%)`;
+  const handleChange = (index, value) => {
+    const updated = [...scores];
+    updated[index] = value;
+    setScores(updated);
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white px-4 py-10 font-sans">
-      <h1 className="text-3xl font-bold text-center">The FINE Test</h1>
-      <p className="text-center text-gray-300 mb-8">
-        Rate each trait; Wildcard is extra credit.
+    <div className="min-h-screen bg-gray-900 text-white py-10 px-4 font-sans">
+      <h1 className="text-4xl font-extrabold text-center mb-2">The F.I.N.E. Test</h1>
+      <p className="text-center text-cyan-300 text-lg mb-1">
+        (Figure, Intellect, Nature, Extra)
       </p>
+      <p className="text-center text-gray-300 mb-8">
+        Rate each trait to find out how much you really want someone.
+      </p>
+      <hr className="border-gray-700 mb-6" />
 
-      {/* core groups */}
-      {Object.entries(traitGroups).map(([group, list]) => (
-        <section key={group} className="mb-8">
-          <h2 className="text-xl font-semibold text-cyan-400 mb-4">{group}</h2>
-          {list.map((t, i) => {
-            const idx = coreTraits.findIndex(x => x.label === t.label);
-            const val = scores[idx];
-            const pct = (val / t.max) * 100;
+      {Object.entries(traitGroups).map(([groupName, traits], groupIndex) => (
+        <div key={groupName} className="mb-8">
+          <h2 className="text-xl font-semibold text-cyan-400 mb-4">{groupName}</h2>
+          {traits.map((trait, index) => {
+            const globalIndex = Object.values(traitGroups).slice(0, groupIndex).flat().length + index;
+            const value = scores[globalIndex];
+            const max = trait.max;
+            const percentage = (value / max) * 100;
+            let color;
+
+            if (percentage <= 20) color = "red";
+            else if (percentage <= 50) color = "yellow";
+            else color = "green";
+
+            const style = {
+              background: `linear-gradient(to right, ${
+                color === "red"
+                  ? "#f87171"
+                  : color === "yellow"
+                  ? "#facc15"
+                  : "#4ade80"
+              } ${percentage}%, #1f2937 ${percentage}%)`
+            };
+
             return (
-              <div key={t.label} className="mb-4">
-                <label className="block text-sm mb-1">
-                  {t.label} ({val}/{t.max})
+              <div key={trait.label} className="mb-4">
+                <label className="block text-sm font-medium text-white mb-1">
+                  {trait.label} ({value}/{max})
                 </label>
                 <input
                   type="range"
                   min="0"
-                  max={t.max}
-                  value={val}
-                  onChange={(e) => updateScore(idx, e.target.value)}
+                  max={max}
+                  value={value}
+                  onChange={(e) => handleChange(globalIndex, e.target.value)}
                   className="w-full h-2 rounded-full appearance-none"
-                  style={{ background: bar(pct) }}
+                  style={style}
                 />
               </div>
             );
           })}
-        </section>
+        </div>
       ))}
 
-      {/* wildcard */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold text-purple-400 mb-4">Extra</h2>
-        {extraTraits.map((t, j) => {
-          const idx = coreTraits.length + j;
-          const val = scores[idx];
-          const pct = (val / t.max) * 100;
-          return (
-            <div key={t.label} className="mb-4">
-              <label className="block text-sm mb-1">
-                {t.label} ({val}/{t.max}){" "}
-                <span className="text-gray-400 text-xs">{t.description}</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max={t.max}
-                value={val}
-                onChange={(e) => updateScore(idx, e.target.value)}
-                className="w-full h-2 rounded-full appearance-none"
-                style={{ background: bar(pct) }}
-              />
-            </div>
-          );
-        })}
-      </section>
-
-      {/* summary */}
       <hr className="border-gray-700 my-6" />
-      <div className="text-center space-y-1">
-        <p className="text-2xl font-bold">Core Score: {coreTotal} / 150</p>
-        <p className="text-lg text-purple-300">Wildcard Bonus: +{wildcard}</p>
-        <p className="text-xl text-cyan-300 font-semibold">{tier}</p>
-      </div>
+      <h2 className="text-2xl font-bold text-center">
+        Main Score: {mainTotal} / 150
+      </h2>
+      <h3 className="text-xl text-center text-cyan-300 mt-2">Tier: {tier}</h3>
+      <p className="text-center text-sm text-gray-400 mt-1">
+        +{wildcardTotal} Extra Credit from Wildcard
+      </p>
     </div>
   );
 }
