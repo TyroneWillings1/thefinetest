@@ -2,42 +2,46 @@ import { useState } from "react";
 import "./index.css";
 
 const traitGroups = {
-  "Appearance": [
+  Appearance: [
     { label: "Face", max: 20 },
     { label: "Hair", max: 10 },
     { label: "Legs", max: 10 },
-    { label: "Body Proportion", max: 10 }
+    { label: "Body Proportion", max: 10 },
   ],
   "Personality & Mind": [
     { label: "Intelligence", max: 15 },
     { label: "Humor", max: 15 },
     { label: "Confidence", max: 10 },
     { label: "Empathy / Kindness", max: 10 },
-    { label: "Communication", max: 10 }
+    { label: "Communication", max: 10 },
   ],
   "Lifestyle & Values": [
     { label: "Ambition / Drive", max: 10 },
     { label: "Independence / Responsibility", max: 10 },
     { label: "Mental / Physical Health", max: 10 },
     { label: "Hygiene", max: 10 },
-    { label: "Wildcard Bonus", max: 25 }
-  ]
+    { label: "Wildcard Bonus", max: 25 },
+  ],
 };
 
 const allTraits = Object.values(traitGroups).flat();
 
 function getTier(score) {
-  if (score >= 150) return "God Tier — You’re legally required to fall in love";
-  if (score >= 140) return "Elite — Marry them yesterday";
-  if (score >= 120) return "Exceptional — A rare gem";
-  if (score >= 90) return "High Quality — Built different in all the right ways";
+  if (score >= 150) return "God Tier — Marry her immediately.";
+  if (score >= 140) return "Elite — Too good to be true, investigate further.";
+  if (score >= 120) return "Exceptional — A rare gem, lock that down.";
+  if (score >= 90) return "High Quality — Built different in all the right ways.";
   if (score >= 50) return "Average — There’s potential!";
-  return "Rough Draft — Needs DLCs and a patch update";
+  return "Rough — Probably not the one for you.";
 }
 
 export default function App() {
   const [scores, setScores] = useState(Array(allTraits.length).fill(0));
-  const total = scores.reduce((sum, val) => sum + Number(val), 0);
+
+  const total = scores
+    .slice(0, allTraits.length - 1) // exclude Wildcard Bonus
+    .reduce((sum, val) => sum + Number(val), 0);
+
   const tier = getTier(total);
 
   const handleChange = (index, value) => {
@@ -93,7 +97,7 @@ export default function App() {
       ))}
 
       <hr className="border-gray-700 my-6" />
-      <h2 className="text-2xl font-bold text-center">Total Score: {total} / 175</h2>
+      <h2 className="text-2xl font-bold text-center">Total Score: {total} / 150</h2>
       <h3 className="text-xl text-center text-cyan-300 mt-2">Tier: {tier}</h3>
     </div>
   );
