@@ -11,8 +11,6 @@
     "react-dom": "^19.1.0",
     "react-scripts": "^5.0.1",
     "web-vitals": "^2.1.4",
-
-    /* 👉 moved here 👇 */
     "tailwindcss": "^3.4.1",
     "postcss": "^8.4.21",
     "autoprefixer": "^10.4.14"
@@ -24,10 +22,21 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": ["react-app", "react-app/jest"]
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
