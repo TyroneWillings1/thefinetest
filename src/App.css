@@ -1,38 +1,131 @@
-.App {
-  text-align: center;
-}
+// FINE Test — mobile-first, slider gradient (accurate), 150 max without Wildcard
+import React, { useState } from 'react';
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
+const traits = [
+  {
+    group: 'Looks',
+    items: [
+      { label: 'Face', max: 20, tip: 'Symmetry, skin, eyes—your natural thumbnail.' },
+      { label: 'Hair', max: 10, tip: 'Luscious locks or tactical baldness?' },
+      { label: 'Legs', max: 10, tip: 'Length, tone, presence. Legs that walk the walk.' },
+      { label: 'Body Proportion', max: 10, tip: 'Golden ratio or IKEA blueprint?' },
+    ],
+  },
+  {
+    group: 'Personality',
+    items: [
+      { label: 'Intelligence', max: 15, tip: 'Brain power & problem-solving.' },
+      { label: 'Humor', max: 15, tip: 'Laugh factory output.' },
+      { label: 'Confidence', max: 10, tip: 'Owns the room—or hides in it.' },
+      { label: 'Empathy / Kindness', max: 10, tip: 'Golden heart or tin man?' },
+      { label: 'Ambition / Drive', max: 10, tip: 'Hustle level.' },
+      { label: 'Communication', max: 10, tip: 'Signal clarity & listening.' },
+    ],
+  },
+  {
+    group: 'Stability',
+    items: [
+      { label: 'Independence / Responsibility', max: 10, tip: 'Adulting score.' },
+      { label: 'Mental / Physical Health', max: 10, tip: 'Body & mind maintenance.' },
+      { label: 'Hygiene', max: 10, tip: 'Smell factor.' },
+    ],
+  },
+  {
+    group: 'Bonus',
+    items: [
+      { label: 'Wildcard Bonus', max: 25, tip: 'X-factor heat.' },
+    ],
+  },
+];
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
+export default function FineTest() {
+  const [scores, setScores] = useState({});
+  const [hoverTip, setHoverTip] = useState('');
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
+  const nonBonusTraits = traits.filter(g => g.group !== 'Bonus');
+  const total = nonBonusTraits
+    .flatMap(g => g.items)
+    .reduce((sum, item) => sum + Number(scores[item.label] || 0), 0);
 
-.App-link {
-  color: #61dafb;
-}
+  const bonusTotal = scores['Wildcard Bonus'] ? Number(scores['Wildcard Bonus']) : 0;
+  const maxTotal = nonBonusTraits.flatMap(g => g.items).reduce((sum, item) => sum + item.max, 0);
+  const pct = Math.round((total / maxTotal) * 100);
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  const tier = total < 50 ? 'Rough Draft' : total < 100 ? 'High Quality' : total < 140 ? 'Elite' : 'God-Tier';
+  const tierDescriptions = {
+    'Rough Draft': 'May still be evolving or not your type—growth is real.',
+    'High Quality': 'Very attractive with solid fundamentals. The sweet spot.',
+    'Elite': 'Intimidatingly awesome. You start lifting weights and learning French.',
+    'God-Tier': 'Unicorn. If she’s real, you marry her or die trying.',
+  };
+
+  const sliderColor = (val, max) => {
+    const percent = (val / max) * 100;
+    return {
+      background: `linear-gradient(to right, hsl(${Math.floor(0 + 1.2 * percent)}, 80%, 50%) ${percent}%, white ${percent}%)`
+    };
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white py-6 px-4 font-sans">
+      <h1 className="text-4xl font-bold text-center mb-1 tracking-tight">The FINE Test</h1>
+      <p className="text-center text-sm text-white mb-4">
+        Total Score: <span className="text-yellow-300 font-semibold text-lg">{total} / {maxTotal}</span>
+      </p>
+
+      {traits.map(group => {
+        const sectionTotal = group.items.reduce((sum, item) => sum + Number(scores[item.label] || 0), 0);
+        const sectionMax = group.items.reduce((sum, item) => sum + item.max, 0);
+        return (
+          <div key={group.group} className="mb-8">
+            <div className="mb-2 text-lg font-semibold text-pink-400">{group.group} ({sectionTotal}/{sectionMax})</div>
+            <div className="bg-gray-800 rounded-xl p-4 shadow-md">
+              {group.items.map(({ label, max, tip }) => (
+                <div key={label} className="mb-5" onMouseEnter={() => setHoverTip(tip)} onMouseLeave={() => setHoverTip('')}>
+                  <label className="block text-xs mb-1 tracking-wide">{label} ({scores[label] || 0}/{max})</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={max}
+                    value={scores[label] || 0}
+                    onChange={e => setScores(p => ({ ...p, [label]: e.target.value }))}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={sliderColor(scores[label] || 0, max)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Progress bar */}
+      <div className="w-full max-w-xl mx-auto h-2 bg-gray-700 rounded-full overflow-hidden my-8">
+        <div
+          className="h-full bg-gradient-to-r from-red-500 via-yellow-400 to-green-500 transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        ></div>
+      </div>
+
+      {/* Tier display */}
+      <div className="text-center">
+        <p className="text-sm">
+          Tier: <span className={
+            total < 50 ? 'text-red-500'
+              : total < 100 ? 'text-yellow-400'
+              : total < 140 ? 'text-green-400'
+              : 'text-purple-400 font-bold'
+          }>{tier}</span>
+        </p>
+        <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto italic">{tierDescriptions[tier]}</p>
+      </div>
+
+      {/* Tooltip */}
+      {hoverTip && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black bg-opacity-80 text-xs py-2 px-4 rounded shadow-lg z-50">
+          {hoverTip}
+        </div>
+      )}
+    </div>
+  );
 }
