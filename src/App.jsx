@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useState } from "react";
 import html2canvas from "html2canvas";
 import "./App.css";
@@ -22,7 +23,7 @@ const traitGroups = {
     { label: "Mental / Physical Health", max: 10 },
     { label: "Hygiene", max: 10 },
   ],
-  "Extra +": [
+  Extra: [
     { label: "Wildcard", max: 10 },
   ],
 };
@@ -96,14 +97,15 @@ function App() {
     setScores({ ...scores, [trait]: parseInt(value, 10) });
   };
 
-  const calculateCategoryTotal = (categoryTraits) =>
-    categoryTraits.reduce((total, trait) => total + (scores[trait] || 0), 0);
-
-  const totalScore = Object.entries(scores)
-    .filter(([key]) => key !== "Wildcard")
-    .reduce((acc, [_, val]) => acc + val, 0);
+  const calculateCategoryTotal = (traits) =>
+    traits.reduce((total, t) => total + (scores[t.label] || 0), 0);
 
   const hasWildcard = scores["Wildcard"] > 0;
+  const allTraitEntries = Object.values(traitGroups).flat();
+  const totalScore = allTraitEntries
+    .filter(t => t.label !== "Wildcard")
+    .reduce((acc, t) => acc + (scores[t.label] || 0), 0);
+
   const tier = getTier(totalScore, hasWildcard);
 
   const getColor = (val) => {
@@ -120,21 +122,21 @@ function App() {
           <h2 className="subtitle">Figure · Intellect · Nature · Energy</h2>
           <p className="instructions">Rate each trait to find out how much you really want someone.</p>
 
-          {Object.entries(traitGroups).map(([category, traits], i) => (
-            <div key={category} className="trait-group mb-6">
-              <h3 className={i > 0 ? "mt-8" : ""}>{category}</h3>
-              {traits.map(({ label, max }) => (
-                <div key={label} className="slider-container">
-                  <label>{label} ({scores[label] || 0})</label>
+          {Object.entries(traitGroups).map(([category, traits]) => (
+            <div key={category} className="group">
+              <h3 className="mt-8">{category}</h3>
+              {traits.map((trait) => (
+                <div key={trait.label} className="slider-container mb-6">
+                  <label>{trait.label} ({scores[trait.label] || 0})</label>
                   <input
                     type="range"
                     min="0"
-                    max={max}
-                    value={scores[label] || 0}
-                    onChange={(e) => handleSlider(label, e.target.value)}
-                    className="slider"
+                    max={trait.max}
+                    value={scores[trait.label] || 0}
+                    onChange={(e) => handleSlider(trait.label, e.target.value)}
+                    className="hasValue"
                     style={{
-                      background: `linear-gradient(to right, ${getColor(scores[label] || 0)} ${(scores[label] || 0) / max * 100}%, #333 ${(scores[label] || 0) / max * 100}%)`
+                      background: `linear-gradient(to right, ${getColor(scores[trait.label] || 0)} ${(scores[trait.label] || 0) / trait.max * 100}%, #333 ${(scores[trait.label] || 0) / trait.max * 100}%)`
                     }}
                   />
                 </div>
@@ -143,13 +145,13 @@ function App() {
           ))}
 
           <div className="button-group flex justify-center mt-8">
-            <button className="w-40 py-2 text-lg" onClick={() => setShowResults(true)}>See Results</button>
+            <button className="btn newTest w-40 py-2 text-lg" onClick={() => setShowResults(true)}>See Results</button>
           </div>
         </div>
       ) : (
         <div id="results" className="results">
           <h2>F.I.N.E. RESULTS</h2>
-          {Object.entries(traitGroups).filter(([k]) => k !== "Extra +").map(([category, traits]) => (
+          {Object.entries(traitGroups).filter(([cat]) => cat !== "Extra").map(([category, traits]) => (
             <div key={category} className="result-block">
               <p>{category}: <span style={{ color: getColor(calculateCategoryTotal(traits) / traits.length) }}>{calculateCategoryTotal(traits)}</span></p>
             </div>
@@ -157,9 +159,10 @@ function App() {
           {hasWildcard && <p>+ Wildcard Bonus: {scores["Wildcard"]}</p>}
           <p className="total-score">Total Score: {totalScore}</p>
           <p className="tier">{tierDescriptions[tier][Math.floor(Math.random() * tierDescriptions[tier].length)]}</p>
+
           <div className="button-group">
-            <button onClick={() => setShowResults(false)}>Go Back</button>
-            <button onClick={() => {
+            <button className="btn goBack" onClick={() => setShowResults(false)}>Go Back</button>
+            <button className="btn newTest" onClick={() => {
               setScores({});
               setShowResults(false);
             }}>Start New Test</button>
