@@ -114,43 +114,37 @@ function App() {
     <div className="App">
       {!showResults ? (
         <div>
-          <h1 className="text-4xl font-bold mb-2">The F.I.N.E. Test</h1>
-          <h2 className="text-cyan-400 text-xl mb-6">Figure · Intellect · Nature · Energy</h2>
-          <p className="mb-6 text-sm italic">Rate each trait to find out how much you really want someone.</p>
+          <h1>The F.I.N.E. Test</h1>
+          <h2>Figure · Intellect · Nature · Energy</h2>
+          <p>Rate each trait to find out how much you really want someone.</p>
 
           {traits.map((group) => (
-            <div key={group.category} className="mb-6">
-              <h3 className="text-xl font-semibold">{group.category}</h3>
-              <p className="text-xs italic mb-2">{group.description}</p>
+            <div key={group.category}>
+              <h3>{group.category}</h3>
+              <p>{group.description}</p>
               {group.traits.map((trait) => (
-                <div key={trait} className="mb-4">
-                  <label className="block font-medium">{trait}</label>
+                <div key={trait}>
+                  <label>{trait}</label>
                   <input
                     type="range"
                     min="0"
                     max="10"
                     value={scores[trait] || 0}
                     onChange={(e) => handleSlider(trait, e.target.value)}
-                    className="w-full slider"
                   />
                 </div>
               ))}
             </div>
           ))}
 
-          <button
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            onClick={() => setShowResults(true)}
-          >
+          <button className="green" onClick={() => setShowResults(true)}>
             See Results
           </button>
         </div>
       ) : (
-        <div id="results" className="text-left">
-          <h1 className="text-4xl font-bold mb-2 underline text-blue-500">
-            <a href="/">fine-test.com</a>
-          </h1>
-          <h2 className="text-xl mb-4">F.I.N.E. RESULTS</h2>
+        <div id="results">
+          <h1><a href="/">fine-test.com</a></h1>
+          <h2>F.I.N.E. RESULTS</h2>
           {traits.slice(0, 4).map((group) => (
             <p key={group.category}>
               {group.category}: {calculateCategoryTotal(group.traits)}
@@ -158,10 +152,8 @@ function App() {
           ))}
           {scores["Wildcard"] > 0 && <p>+ Wildcard Bonus: {scores["Wildcard"]}</p>}
 
-          <p className="mt-4 text-lg">
-            <strong>Total Score: </strong>{totalScore}
-          </p>
-          <p className="mb-4 text-lg">
+          <p><strong>Total Score: </strong>{totalScore}</p>
+          <p>
             <strong>Tier: </strong>{
               tierDescriptions[tier][
                 Math.floor(Math.random() * tierDescriptions[tier].length)
@@ -169,17 +161,11 @@ function App() {
             }
           </p>
 
-          <div className="flex gap-2">
-            <button
-              className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-              onClick={handleExport}
-            >
+          <div>
+            <button className="blue" onClick={handleExport}>
               Share / Download
             </button>
-            <button
-              className="bg-gray-400 text-black px-3 py-1 rounded hover:bg-gray-500"
-              onClick={() => setShowResults(false)}
-            >
+            <button className="gray" onClick={() => setShowResults(false)}>
               Adjust / Retake
             </button>
           </div>
