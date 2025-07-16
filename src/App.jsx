@@ -113,27 +113,28 @@ function App() {
   };
 
   return (
-    <div className="App">
+    <div className="App px-4 md:px-6 lg:px-8 max-w-prose mx-auto">
       {!showResults ? (
         <div className="test-container">
           <h1 className="title">The F.I.N.E. Test</h1>
           <h2 className="subtitle">Figure · Intellect · Nature · Energy</h2>
           <p className="instructions">Rate each trait to find out how much you really want someone.</p>
 
-          {Object.entries(traitGroups).map(([category, traits]) => (
-            <div key={category} className="trait-group">
-              <h3>{category}</h3>
-              {traits.map((trait) => (
-                <div key={trait.label} className="slider-container">
-                  <label>{trait.label} ({scores[trait.label] || 0})</label>
+          {Object.entries(traitGroups).map(([category, traits], i) => (
+            <div key={category} className="trait-group mb-6">
+              <h3 className={i > 0 ? "mt-8" : ""}>{category}</h3>
+              {traits.map(({ label, max }) => (
+                <div key={label} className="slider-container">
+                  <label>{label} ({scores[label] || 0})</label>
                   <input
                     type="range"
                     min="0"
-                    max={trait.max}
-                    value={scores[trait.label] || 0}
-                    onChange={(e) => handleSlider(trait.label, e.target.value)}
+                    max={max}
+                    value={scores[label] || 0}
+                    onChange={(e) => handleSlider(label, e.target.value)}
+                    className="slider"
                     style={{
-                      background: `linear-gradient(to right, ${getColor(scores[trait.label] || 0)} ${(scores[trait.label] || 0) * 10}%, #333 ${(scores[trait.label] || 0) * 10}%)`
+                      background: `linear-gradient(to right, ${getColor(scores[label] || 0)} ${(scores[label] || 0) / max * 100}%, #333 ${(scores[label] || 0) / max * 100}%)`
                     }}
                   />
                 </div>
@@ -141,14 +142,14 @@ function App() {
             </div>
           ))}
 
-          <div className="button-group">
-            <button onClick={() => setShowResults(true)}>See Results</button>
+          <div className="button-group flex justify-center mt-8">
+            <button className="w-40 py-2 text-lg" onClick={() => setShowResults(true)}>See Results</button>
           </div>
         </div>
       ) : (
         <div id="results" className="results">
           <h2>F.I.N.E. RESULTS</h2>
-          {Object.entries(traitGroups).filter(([cat]) => cat !== "Extra +").map(([category, traits]) => (
+          {Object.entries(traitGroups).filter(([k]) => k !== "Extra +").map(([category, traits]) => (
             <div key={category} className="result-block">
               <p>{category}: <span style={{ color: getColor(calculateCategoryTotal(traits) / traits.length) }}>{calculateCategoryTotal(traits)}</span></p>
             </div>

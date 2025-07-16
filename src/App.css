@@ -39,6 +39,10 @@ input[type="range"]{
   background:#555;               /* default track · looks “blank”   */
   outline:none;
   cursor:pointer;
+  pointer-events: none; /* Prevent tap-jumping */
+}
+input[type="range"]:focus {
+  pointer-events: auto; /* Allow drag only */
 }
 
 /* THUMB (knob) */
@@ -48,10 +52,12 @@ input[type="range"]::-webkit-slider-thumb{
   border-radius:50%;
   background:#0a84ff;
   border:2px solid #0a0d14;
+  pointer-events: auto;
 }
 input[type="range"]::-moz-range-thumb{
   height:18px;width:18px;border-radius:50%;
   background:#0a84ff;border:2px solid #0a0d14;
+  pointer-events: auto;
 }
 
 /* JS injects inline gradient on change — ensure it sits on TOP */
@@ -75,17 +81,6 @@ input[type="range"].hasValue{
   font-size:1rem;
 }
 
-.scoreBlock{
-  display:flex;
-  justify-content:space-between;
-  padding:.4rem .6rem;
-  border-radius:6px;
-  margin:.35rem 0;
-}
-.scoreBlock.low   {background:#3a1010;color:#f87171;}   /* red   */
-.scoreBlock.mid   {background:#3e2b00;color:#facc15;}   /* yellow*/
-.scoreBlock.high  {background:#0f2e17;color:#4ade80;}   /* green */
-
 /* 5. BUTTONS
    ---------- */
 .btn{
@@ -98,3 +93,33 @@ input[type="range"].hasValue{
 .btn.goBack:hover{background:#525760;}
 .btn.newTest{background:#22c55e;color:#061709;}
 .btn.newTest:hover{background:#16a34a;}
+
+/* NEW STYLES BASED ON USER PATCH LIST */
+.test-container {
+  padding-left: 1rem;
+  padding-right: 1rem;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.trait-group {
+  margin-bottom: 1.5rem;
+}
+
+.trait-group h3 {
+  margin-top: 2rem;
+}
+
+.button-group {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.button-group button {
+  width: 10rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  font-size: 1.125rem;
+}
