@@ -1,94 +1,79 @@
-import React, { useState } from "react"; import html2canvas from "html2canvas"; import "./App.css";
+// App.jsx import React, { useState } from "react"; import html2canvas from "html2canvas"; import "./App.css";
 
-const traits = [ { category: "Appearance", description: "Physical appeal, style, body proportion", traits: [ "Face", "Hair", "Legs", "Body Proportion" ], }, { category: "Personality & Mind", description: "Cognitive ability, humor, empathy, etc.", traits: [ "Intelligence", "Humor", "Confidence", "Empathy / Kindness", "Communication" ], }, { category: "Lifestyle & Values", description: "Drive, responsibility, wellness, hygiene", traits: [ "Ambition / Drive", "Independence / Responsibility", "Mental / Physical Health", "Hygiene" ], }, { category: "Extra +", description: "(quirks, magic, chemistry, mystery, freak factor)", traits: ["Wildcard"] } ];
+/* ---------- Trait data ---------- */ const traitGroups = { Appearance: [ { label: "Face", max: 20 }, { label: "Hair", max: 10 }, { label: "Legs", max: 10 }, { label: "Body Proportion", max: 10 }, ], "Personality & Mind": [ { label: "Intelligence", max: 15 }, { label: "Humor", max: 15 }, { label: "Confidence", max: 10 }, { label: "Empathy / Kindness", max: 10 }, { label: "Communication", max: 10 }, ], "Lifestyle & Values": [ { label: "Ambition / Drive", max: 10 }, { label: "Independence / Responsibility", max: 10 }, { label: "Mental / Physical Health", max: 10 }, { label: "Hygiene", max: 10 }, ], Extra: [ { label: "Wildcard", max: 10 }, ], };
 
-const tierDescriptions = { Unicorn: [ "Unicorn Tier — This is once in a lifetime.", "Unicorn Tier — The legend is real.", "Unicorn Tier — Marry her yesterday.", "Unicorn Tier — This breaks the simulation.", "Unicorn Tier — Nothing else compares.", "Unicorn Tier — She's what songs are written about." ], Elite: [ "Elite — Practically unfair to the rest.", "Elite — Where has she been all your life?", "Elite — Too good to be true, investigate further." ], Exceptional: [ "Exceptional — You’ll regret letting this go.", "Exceptional — She’s passing with honors.", "Exceptional — A rare gem, lock that down." ], High: [ "High Quality — Built different in all the right ways.", "High Quality — Could be something real.", "High Quality — Serious contender status." ], Average: [ "Average — Could grow into something.", "Average — Some sparks, but not fireworks.", "Average — There’s potential!" ], Rough: [ "Rough — You're dating with beer goggles.", "Rough — That dog ain’t gonna hunt.", "Rough — Proceed at your own risk." ] };
+const tierDescriptions = { Unicorn: [ "Unicorn — Marry her immediately.", "Unicorn — This is cosmic alignment.", "Unicorn — You’re not choosing her, the universe is.", "Unicorn — Literally once in a lifetime.", "Unicorn — A fantasy turned real.", "Unicorn — You hit the cosmic jackpot." ], Elite: [ "Elite — Too good to be true, investigate further.", "Elite — Where has she been all your life?", "Elite — Practically unfair to the rest.", "Elite — Top 1%, no notes.", "Elite — The gold standard.", "Elite — Near flawless."
+], Exceptional: [ "Exceptional — A rare gem, lock that down.", "Exceptional — She’s passing with honors.", "Exceptional — You’ll regret letting this go.", "Exceptional — Premium partner material.", "Exceptional — Worth the effort.", "Exceptional — She’s the exception, not the rule." ], High: [ "High Quality — Built different in all the right ways.", "High Quality — Serious contender status.", "High Quality — Could be something real.", "High Quality — Solid and steady.", "High Quality — Would recommend.", "High Quality — Better than most." ], Average: [ "Average — There’s potential!", "Average — Could grow into something.", "Average — Some sparks, but not fireworks.", "Average — Hit or miss.", "Average — Room for growth.", "Average — Not bad, not amazing." ], Rough: [ "Rough — Proceed at your own risk.", "Rough — That dog ain’t gonna hunt.", "Rough — You're dating with beer goggles.", "Rough — Red flags meet caution tape.", "Rough — Not for the faint of heart.", "Rough — Might be a growth experience."
+]
+};
 
 function getTier(score, hasWildcard) { const effectiveScore = score + (hasWildcard ? 10 : 0); if (effectiveScore >= 150) return "Unicorn"; if (effectiveScore >= 140) return "Elite"; if (effectiveScore >= 120) return "Exceptional"; if (effectiveScore >= 90) return "High"; if (effectiveScore >= 50) return "Average"; return "Rough"; }
 
 function App() { const [scores, setScores] = useState({}); const [showResults, setShowResults] = useState(false);
 
-const handleSlider = (trait, value) => { setScores({ ...scores, [trait]: parseInt(value, 10) }); };
+const handleSlider = (label, value) => { setScores({ ...scores, [label]: parseInt(value, 10) }); };
 
-const calculateCategoryTotal = (categoryTraits) => categoryTraits.reduce((total, trait) => total + (scores[trait] || 0), 0);
+const calculateCategoryTotal = (group) => group.reduce((sum, trait) => sum + (scores[trait.label] || 0), 0);
 
-const totalScore = Object.entries(scores) .filter(([key]) => key !== "Wildcard") .reduce((acc, [_, val]) => acc + val, 0);
+const totalScore = Object.entries(scores) .filter(([label]) => label !== "Wildcard") .reduce((sum, [, value]) => sum + value, 0);
 
 const hasWildcard = scores["Wildcard"] > 0; const tier = getTier(totalScore, hasWildcard);
 
-return ( <div className="App"> {!showResults ? ( <div> <h1 className="text-4xl font-bold mb-2 text-center">The F.I.N.E. Test</h1> <h2 className="text-cyan-400 text-xl mb-6 text-center"> Figure · Intellect · Nature · Energy </h2> <p className="mb-6 text-sm italic text-center"> Rate each trait to find out how much you really want someone. </p>
+return ( <div className="container"> {!showResults ? ( <div className="form"> <h1 className="title">The F.I.N.E. Test</h1> <h2 className="subtitle">Figure · Intellect · Nature · Energy</h2> <p className="instruction">Rate each trait to find out how much you really want someone.</p>
 
-{traits.map((group) => (
-        <div key={group.category} className="mb-10 px-4">
-          <h3 className="text-xl font-semibold mb-1">{group.category}</h3>
-          <p className="text-xs italic mb-4">{group.description}</p>
-          {group.traits.map((trait) => (
-            <div key={trait} className="mb-4">
-              <label className="block font-medium mb-1">
-                {trait} ({scores[trait] || 0})
-              </label>
+{Object.entries(traitGroups).map(([group, traits]) => (
+        <div className="group" key={group}>
+          <h3 className="group-title">{group}</h3>
+          {traits.map((trait, index) => (
+            <div className="trait" key={trait.label}>
+              <label>{trait.label}</label>
               <input
                 type="range"
                 min="0"
-                max="10"
-                value={scores[trait] || 0}
-                onChange={(e) => handleSlider(trait, e.target.value)}
-                className="w-full slider"
+                max={trait.max}
+                step="1"
+                value={scores[trait.label] || 0}
+                onChange={(e) => handleSlider(trait.label, e.target.value)}
+                className="slider"
               />
+              <span className="slider-value">{scores[trait.label] || 0}</span>
             </div>
           ))}
         </div>
       ))}
 
-      <div className="flex justify-center mb-12">
-        <button
-          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
-          onClick={() => setShowResults(true)}
-        >
-          See Results
-        </button>
-      </div>
+      <button className="submit-btn" onClick={() => setShowResults(true)}>
+        See Results
+      </button>
     </div>
   ) : (
-    <div id="results" className="text-left px-4">
-      <h1 className="text-3xl font-bold mb-2 underline text-blue-500 text-center">
-        thefinetest.com
-      </h1>
-      <h2 className="text-xl mb-4 text-center">F.I.N.E. RESULTS</h2>
+    <div className="results">
+      <h1 className="title">thefinetest.com</h1>
+      <h2 className="subtitle">F.I.N.E. RESULTS</h2>
 
-      {traits.slice(0, 3).map((group) => (
-        <div key={group.category} className="mb-3">
-          <p>
-            <strong>{group.category}:</strong> {calculateCategoryTotal(group.traits)}
-          </p>
-        </div>
-      ))}
-      {scores["Wildcard"] > 0 && <p><strong>+ Wildcard Bonus:</strong> {scores["Wildcard"]}</p>}
+      {Object.entries(traitGroups).map(([group, traits]) => {
+        if (group === "Extra") return null;
+        const total = calculateCategoryTotal(traits);
+        let color = total >= 40 ? "green" : total >= 25 ? "yellow" : "red";
+        return (
+          <div className="result-block" key={group} style={{ borderLeft: `4px solid ${color}` }}>
+            <strong>{group}</strong>: {total}
+          </div>
+        );
+      })}
 
-      <p className="mt-4 text-lg">
-        <strong>Total Score:</strong> {totalScore}
-      </p>
-      <p className="mb-6 text-lg">
-        <strong>Tier:</strong> {
-          tierDescriptions[tier][
-            Math.floor(Math.random() * tierDescriptions[tier].length)
-          ]
-        }
+      {hasWildcard && (
+        <p className="wildcard">+ Wildcard Bonus: {scores["Wildcard"]}</p>
+      )}
+
+      <p className="final-score">Total Score: {totalScore}</p>
+      <p className="final-tier">
+        Tier: {tierDescriptions[tier][Math.floor(Math.random() * tierDescriptions[tier].length)]}
       </p>
 
-      <div className="flex gap-4 justify-center">
-        <button
-          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-          onClick={() => setShowResults(false)}
-        >
-          Go Back
-        </button>
-        <button
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          onClick={() => window.location.reload()}
-        >
-          Start New Test
-        </button>
+      <div className="result-buttons">
+        <button onClick={() => setShowResults(false)}>Go Back</button>
+        <button onClick={() => window.location.reload()}>Start New Test</button>
       </div>
     </div>
   )}
