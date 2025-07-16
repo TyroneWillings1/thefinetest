@@ -1,2 +1,3 @@
-/* New (Tailwind v4 style): */
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
