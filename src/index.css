@@ -1,8 +1,2 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Optional: Add global styles */
-body {
-  @apply bg-white text-black; /* ✅ Ensures background isn't transparent */
-}
+/* New (Tailwind v4 style): */
+@import "tailwindcss";
