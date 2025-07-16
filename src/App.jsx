@@ -85,16 +85,6 @@ function App() {
   const calculateCategoryTotal = (categoryTraits) =>
     categoryTraits.reduce((total, trait) => total + (scores[trait] || 0), 0);
 
-  const handleExport = () => {
-    const element = document.getElementById("results");
-    html2canvas(element).then((canvas) => {
-      const link = document.createElement("a");
-      link.download = "fine_results.webp";
-      link.href = canvas.toDataURL("image/webp");
-      link.click();
-    });
-  };
-
   const totalScore = Object.entries(scores)
     .filter(([key]) => key !== "Wildcard")
     .reduce((acc, [_, val]) => acc + val, 0);
@@ -102,77 +92,76 @@ function App() {
   const hasWildcard = scores["Wildcard"] > 0;
   const tier = getTier(totalScore, hasWildcard);
 
+  const resetTest = () => {
+    setScores({});
+    setShowResults(false);
+  };
+
   return (
-    <div className="App" style={{ backgroundColor: "#1e1e2f", color: "white", minHeight: "100vh", padding: "1rem" }}>
+    <div className="App">
       {!showResults ? (
-        <div>
-          <h1 className="text-4xl font-bold mb-2">The F.I.N.E. Test</h1>
-          <h2 className="text-cyan-400 text-xl mb-6">Figure · Intellect · Nature · Energy</h2>
-          <p className="mb-6 text-sm italic">Rate each trait to find out how much you really want someone.</p>
+        <div className="header-section">
+          <h1 className="title">The F.I.N.E. Test</h1>
+          <h2 className="subtitle">Figure · Intellect · Nature · Energy</h2>
+          <p className="tagline">Rate each trait to find out how much you really want someone.</p>
 
           {traits.map((group) => (
-            <div key={group.category} className="mb-6">
-              <h3 className="text-xl font-semibold">{group.category}</h3>
-              <p className="text-xs italic mb-2">{group.description}</p>
+            <div key={group.category} className="category-block">
+              <h3>{group.category}</h3>
+              <p className="description">{group.description}</p>
               {group.traits.map((trait) => (
-                <div key={trait} className="mb-4">
-                  <label className="block font-medium">{trait}</label>
+                <div key={trait} className="trait-slider">
+                  <label>{trait}</label>
                   <input
                     type="range"
                     min="0"
                     max="10"
                     value={scores[trait] || 0}
                     onChange={(e) => handleSlider(trait, e.target.value)}
-                    className="custom-slider"
+                    className="slider"
                   />
                 </div>
               ))}
             </div>
           ))}
 
-          <button
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            onClick={() => setShowResults(true)}
-          >
+          <button className="submit-btn" onClick={() => setShowResults(true)}>
             See Results
           </button>
         </div>
       ) : (
-        <div id="results" className="text-left">
-          <h1 className="text-4xl font-bold mb-2 underline text-blue-400">
-            <a href="/">fine-test.com</a>
+        <div id="results" className="results">
+          <h1 className="site-name">
+            <a href="/">thefinetest.com</a>
           </h1>
-          <h2 className="text-xl mb-4">F.I.N.E. RESULTS</h2>
+          <h2 className="results-header">F.I.N.E. RESULTS</h2>
           {traits.slice(0, 4).map((group) => (
-            <p key={group.category}>
-              {group.category}: {calculateCategoryTotal(group.traits)}
-            </p>
+            <div
+              key={group.category}
+              className={`result-block score-${calculateCategoryTotal(group.traits)}`}
+            >
+              <strong>{group.category}</strong>: {calculateCategoryTotal(group.traits)}
+            </div>
           ))}
-          {scores["Wildcard"] > 0 && <p>+ Wildcard Bonus: {scores["Wildcard"]}</p>}
+          {hasWildcard && <p className="wildcard-bonus">+ Wildcard Bonus: {scores["Wildcard"]}</p>}
 
-          <p className="mt-4 text-lg">
-            <strong>Total Score: </strong>{totalScore}
+          <p className="total-score">
+            <strong>Total Score:</strong> {totalScore}
           </p>
-          <p className="mb-4 text-lg">
-            <strong>Tier: </strong>{
+          <p className="tier-description">
+            <strong>Tier:</strong> {
               tierDescriptions[tier][
                 Math.floor(Math.random() * tierDescriptions[tier].length)
               ]
             }
           </p>
 
-          <div className="flex gap-2">
-            <button
-              className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-              onClick={handleExport}
-            >
-              Share / Download
+          <div className="button-group">
+            <button className="back-btn" onClick={() => setShowResults(false)}>
+              Go Back
             </button>
-            <button
-              className="bg-gray-400 text-black px-3 py-1 rounded hover:bg-gray-500"
-              onClick={() => setShowResults(false)}
-            >
-              Adjust / Retake
+            <button className="reset-btn" onClick={resetTest}>
+              Start New Test
             </button>
           </div>
         </div>
