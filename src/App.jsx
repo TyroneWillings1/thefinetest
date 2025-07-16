@@ -36,50 +36,50 @@ const tierDescriptions = {
     "Unicorn Tier — Marry her immediately.",
     "Unicorn Tier — This is cosmic alignment.",
     "Unicorn Tier — You’re not choosing her, the universe is.",
-    "Unicorn Tier — Literally unbelievable, and yet, here she is.",
-    "Unicorn Tier — Statistically impossible. Emotionally undeniable.",
-    "Unicorn Tier — Mythical levels of compatibility."
+    "Unicorn Tier — There’s a glitch in the matrix and it’s her.",
+    "Unicorn Tier — The gods weep in envy.",
+    "Unicorn Tier — Cancel your dating apps forever."
   ],
   Elite: [
     "Elite — Too good to be true, investigate further.",
     "Elite — Where has she been all your life?",
     "Elite — Practically unfair to the rest.",
-    "Elite — Couldn’t build her better in a lab.",
-    "Elite — Probably has a waitlist.",
-    "Elite — You’ll need a strategy and a suit."
+    "Elite — Probably has a waiting list.",
+    "Elite — You’re punching up, buddy.",
+    "Elite — Lock in before someone else does."
   ],
   Exceptional: [
     "Exceptional — A rare gem, lock that down.",
     "Exceptional — She’s passing with honors.",
     "Exceptional — You’ll regret letting this go.",
-    "Exceptional — One-of-a-kind personality fusion.",
-    "Exceptional — Chemistry and character, check.",
-    "Exceptional — Impressively well-rounded."
+    "Exceptional — Might be the one.",
+    "Exceptional — Strong long-term potential.",
+    "Exceptional — Built like a rom-com lead."
   ],
   High: [
     "High Quality — Built different in all the right ways.",
     "High Quality — Serious contender status.",
     "High Quality — Could be something real.",
-    "High Quality — Strong foundation to build on.",
-    "High Quality — You're not settling, you're selecting.",
-    "High Quality — Consider this your sleeper pick."
+    "High Quality — Definitely worth your time.",
+    "High Quality — Hidden gem energy.",
+    "High Quality — She’s got the juice."
   ],
   Average: [
     "Average — There’s potential!",
     "Average — Could grow into something.",
     "Average — Some sparks, but not fireworks.",
-    "Average — Depends on what you’re looking for.",
-    "Average — Manage expectations.",
-    "Average — Give it a few episodes."
+    "Average — Feels like a warm-up round.",
+    "Average — Decent, not unforgettable.",
+    "Average — Swipe with cautious optimism."
   ],
   Rough: [
     "Rough — Proceed at your own risk.",
     "Rough — That dog ain’t gonna hunt.",
     "Rough — You're dating with beer goggles.",
-    "Rough — It’s not looking good, champ.",
-    "Rough — Ask yourself: Am I lonely or desperate?",
-    "Rough — Respect yourself."
-  ]
+    "Rough — May contain emotional turbulence.",
+    "Rough — Handle with wine.",
+    "Rough — You’re better off solo tonight."
+  ],
 };
 
 function getTier(score, hasWildcard) {
@@ -98,17 +98,6 @@ function App() {
 
   const handleSlider = (trait, value) => {
     setScores({ ...scores, [trait]: parseInt(value, 10) });
-    const slider = document.getElementById(`slider-${trait}`);
-    const val = parseInt(value, 10);
-    if (slider) {
-      const pct = (val / 10) * 100;
-      let color = "#555";
-      if (val > 0) {
-        color = `linear-gradient(90deg, red, yellow ${pct / 2}%, lime ${pct}%, #222 ${pct}%)`;
-      }
-      slider.style.background = color;
-      slider.classList.toggle("hasValue", val > 0);
-    }
   };
 
   const calculateCategoryTotal = (categoryTraits) =>
@@ -121,89 +110,65 @@ function App() {
   const hasWildcard = scores["Wildcard"] > 0;
   const tier = getTier(totalScore, hasWildcard);
 
+  const getColor = (val) => {
+    if (val < 4) return "#e53935"; // red
+    if (val < 7) return "#fdd835"; // yellow
+    return "#43a047"; // green
+  };
+
   return (
     <div className="App">
       {!showResults ? (
-        <div>
-          <h1>The F.I.N.E. Test</h1>
-          <h2>Figure · Intellect · Nature · Energy</h2>
-          <p>Rate each trait to find out how much you really want someone.</p>
+        <div className="test-container">
+          <h1 className="title">The F.I.N.E. Test</h1>
+          <h2 className="subtitle">Figure · Intellect · Nature · Energy</h2>
+          <p className="instructions">Rate each trait to find out how much you really want someone.</p>
 
           {traits.map((group) => (
-            <div key={group.category} className="group">
+            <div key={group.category} className="trait-group">
               <h3>{group.category}</h3>
-              <p className="text-xs italic mb-2">{group.description}</p>
+              <p className="trait-description">{group.description}</p>
               {group.traits.map((trait) => (
-                <div key={trait} className="mb-4">
-                  <label>{trait}</label>
+                <div key={trait} className="slider-container">
+                  <label>{trait} ({scores[trait] || 0})</label>
                   <input
-                    id={`slider-${trait}`}
                     type="range"
                     min="0"
                     max="10"
                     value={scores[trait] || 0}
                     onChange={(e) => handleSlider(trait, e.target.value)}
-                    className={`slider ${scores[trait] ? "hasValue" : ""}`}
+                    style={{
+                      background: `linear-gradient(to right, ${getColor(scores[trait] || 0)} ${(scores[trait] || 0) * 10}%, #333 ${(scores[trait] || 0) * 10}%)`
+                    }}
                   />
                 </div>
               ))}
             </div>
           ))}
 
-          <button
-            className="btn newTest"
-            onClick={() => setShowResults(true)}
-          >
-            See Results
-          </button>
+          <div className="button-group">
+            <button onClick={() => setShowResults(true)}>See Results</button>
+          </div>
         </div>
       ) : (
         <div id="results" className="results">
-          <h1>F.I.N.E. RESULTS</h1>
-          {traits.slice(0, 4).map((group) => {
-            const total = calculateCategoryTotal(group.traits);
-            const className =
-              total >= 40 ? "scoreBlock high" :
-              total >= 25 ? "scoreBlock mid" : "scoreBlock low";
-            return (
-              <div key={group.category} className={className}>
-                <span>{group.category}</span>
-                <span>{total}</span>
-              </div>
-            );
-          })}
+          <h2>F.I.N.E. RESULTS</h2>
+          {traits.slice(0, 4).map((group) => (
+            <div key={group.category} className="result-block">
+              <p>{group.category}: <span style={{ color: getColor(calculateCategoryTotal(group.traits) / group.traits.length) }}>{calculateCategoryTotal(group.traits)}</span></p>
+            </div>
+          ))}
+          {hasWildcard && <p>+ Wildcard Bonus: {scores["Wildcard"]}</p>}
 
-          {scores["Wildcard"] > 0 && (
-            <p className="text-sm italic mt-2">+ Wildcard Bonus: {scores["Wildcard"]}</p>
-          )}
+          <p className="total-score">Total Score: {totalScore}</p>
+          <p className="tier">{tierDescriptions[tier][Math.floor(Math.random() * tierDescriptions[tier].length)]}</p>
 
-          <p className="mt-4 text-lg">
-            <strong>Total Score: </strong>{totalScore}
-          </p>
-          <p className="mb-4 text-lg">
-            <strong>Tier: </strong>{
-              tierDescriptions[tier][
-                Math.floor(Math.random() * tierDescriptions[tier].length)
-              ]
-            }
-          </p>
-
-          <div className="flex gap-2">
-            <button
-              className="btn goBack"
-              onClick={() => setShowResults(false)}
-            >
-              Go Back
-            </button>
-            <button
-              className="btn newTest"
-              onClick={() => {
-                setScores({});
-                setShowResults(false);
-              }}
-            >
-              Start New Test
-            </button>
+          <div className="button-group">
+            <button onClick={() => setShowResults(false)}>Go Back</button>
+            <button onClick={() => {
+              setScores({});
+              setShowResults(false);
+            }}>Start New Test</button>
           </div>
         </div>
       )}
