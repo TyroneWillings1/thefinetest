@@ -516,6 +516,13 @@ function shuffleItems(items = []) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
+function cloneQuestions(questions = []) {
+  return questions.map((question) => ({
+    ...question,
+    compatibility_options: (question.compatibility_options || []).map((option) => ({ ...option })),
+  }));
+}
+
 function getSliderColor(value, max) {
   const percent = max ? value / max : 0;
   if (percent < 0.34) return "#38bdf8";
@@ -1424,6 +1431,7 @@ function AdminPanel({ navigate }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [questions, setQuestions] = useState([]);
+  const [savedQuestions, setSavedQuestions] = useState([]);
   const [resultBands, setResultBands] = useState([]);
   const [savedResultBands, setSavedResultBands] = useState([]);
   const [advancedResultsOn, setAdvancedResultsOn] = useState(false);
@@ -1514,7 +1522,9 @@ function AdminPanel({ navigate }) {
       return;
     }
 
-    setQuestions(questionData || []);
+    const loadedQuestions = cloneQuestions(questionData || []);
+    setQuestions(loadedQuestions);
+    setSavedQuestions(cloneQuestions(loadedQuestions));
     setSubmissions(submissionData || []);
     const loadedBands = bandData || [];
     setResultBands(loadedBands);
@@ -1596,44 +1606,41 @@ function AdminPanel({ navigate }) {
 
   const fillRandomQuestion = async (questionId) => {
     const template = pickRandomItem(randomQuestionBank);
-    await updateQuestion(questionId, {
+    updateQuestion(questionId, {
       prompt: template.prompt,
       description: template.description,
       description_enabled: true,
     });
 
-    const question = questions.find((item) => item.id === questionId);
-    const options = question?.compatibility_options || [];
-    await Promise.all(
-      options.map((option, index) => {
-        const answer = template.answers[index] || template.answers[template.answers.length - 1];
-        return supabase
-          .from("compatibility_options")
-          .update({ label: answer[0], points: answer[1], sort_order: index + 1 })
-          .eq("id", option.id);
-      })
+    setQuestions((current) =>
+      current.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              compatibility_options: (question.compatibility_options || []).map(
+                (option, index) => {
+                  const answer =
+                    template.answers[index] || template.answers[template.answers.length - 1];
+                  return { ...option, label: answer[0], points: answer[1], sort_order: index + 1 };
+                }
+              ),
+            }
+          : question
+      )
     );
-    setMessage("Question randomized.");
-    loadAdminData();
+    setMessage("Question randomized. Hit Save Test to keep it.");
   };
 
-  const fillRandomAnswer = async (questionId, optionId) => {
+  const fillRandomAnswer = (questionId, optionId) => {
     const template = pickRandomItem(randomQuestionBank);
     const answer = pickRandomItem(template.answers);
-    await updateOption(questionId, optionId, { label: answer[0], points: answer[1] });
+    updateOption(questionId, optionId, { label: answer[0], points: answer[1] });
   };
 
-  const updateQuestion = async (id, changes) => {
+  const updateQuestion = (id, changes) => {
     setQuestions((current) =>
       current.map((question) => (question.id === id ? { ...question, ...changes } : question))
     );
-
-    const { error: updateError } = await supabase
-      .from("compatibility_questions")
-      .update(changes)
-      .eq("id", id);
-
-    if (updateError) setError(updateError.message);
   };
 
   const deleteQuestion = async (id) => {
@@ -1691,15 +1698,51 @@ function AdminPanel({ navigate }) {
       return;
     }
 
+    for (const question of questions) {
+      const { error: questionSaveError } = await supabase
+        .from("compatibility_questions")
+        .update({
+          prompt: question.prompt,
+          description: question.description || "",
+          description_enabled: question.description_enabled !== false,
+          sort_order: question.sort_order,
+          active: question.active !== false,
+        })
+        .eq("id", question.id);
+
+      if (questionSaveError) {
+        setError(questionSaveError.message);
+        return;
+      }
+
+      for (const option of question.compatibility_options || []) {
+        const { error: optionSaveError } = await supabase
+          .from("compatibility_options")
+          .update({
+            label: option.label,
+            points: Number(option.points) || 0,
+            sort_order: option.sort_order,
+          })
+          .eq("id", option.id);
+
+        if (optionSaveError) {
+          setError(optionSaveError.message);
+          return;
+        }
+      }
+    }
+
     setQuizDetails(cleanedDetails);
     setSavedQuizDetails(cleanedDetails);
-    setMessage("Quiz details saved.");
+    setSavedQuestions(cloneQuestions(questions));
+    setMessage("Test saved.");
   };
 
   const discardQuizDetails = () => {
     setQuizDetails(savedQuizDetails);
+    setQuestions(cloneQuestions(savedQuestions));
     setError("");
-    setMessage("Quiz details discarded.");
+    setMessage("Unsaved test edits discarded.");
   };
 
   const copyShareLink = async () => {
@@ -1731,7 +1774,7 @@ function AdminPanel({ navigate }) {
     setMessage("Share link copied.");
   };
 
-  const updateOption = async (questionId, optionId, changes) => {
+  const updateOption = (questionId, optionId, changes) => {
     setQuestions((current) =>
       current.map((question) =>
         question.id === questionId
@@ -1744,13 +1787,6 @@ function AdminPanel({ navigate }) {
           : question
       )
     );
-
-    const { error: updateError } = await supabase
-      .from("compatibility_options")
-      .update(changes)
-      .eq("id", optionId);
-
-    if (updateError) setError(updateError.message);
   };
 
   const addOption = async (question) => {
@@ -2227,7 +2263,7 @@ function AdminPanel({ navigate }) {
                 onClick={saveQuizDetails}
                 className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-cyan-100"
               >
-                Save Test Details
+                Save Test
               </button>
               <button
                 type="button"
