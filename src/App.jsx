@@ -71,6 +71,294 @@ const tierDescriptions = {
   ],
 };
 
+const randomQuestionBank = [
+  {
+    prompt: "What kind of weekend sounds best?",
+    description: "Pick the answer that feels most natural to you.",
+    answers: [
+      ["Quiet night in", 10],
+      ["Dinner and drinks", 8],
+      ["A full party weekend", 4],
+      ["Whatever everyone else wants", 2],
+    ],
+  },
+  {
+    prompt: "How do you handle conflict?",
+    description: "Be honest. This one matters.",
+    answers: [
+      ["Talk it out directly", 10],
+      ["Cool off, then talk", 8],
+      ["Make jokes until it passes", 4],
+      ["Avoid it completely", 1],
+    ],
+  },
+  {
+    prompt: "What is your texting style?",
+    description: "No judgment. Mostly.",
+    answers: [
+      ["Normal human pace", 10],
+      ["Fast replies", 8],
+      ["Depends on the day", 6],
+      ["I vanish randomly", 2],
+    ],
+  },
+  {
+    prompt: "How important is ambition to you?",
+    description: "This is about direction, not job title.",
+    answers: [
+      ["Very important", 10],
+      ["Important, but balanced", 9],
+      ["Somewhat important", 6],
+      ["Not really important", 2],
+    ],
+  },
+  {
+    prompt: "What kind of humor do you like most?",
+    description: "Pick the one you naturally gravitate toward.",
+    answers: [
+      ["Dry and clever", 10],
+      ["Playful teasing", 9],
+      ["Silly and chaotic", 7],
+      ["I barely joke around", 2],
+    ],
+  },
+  {
+    prompt: "How do you feel about personal space?",
+    description: "Everybody has a different setting here.",
+    answers: [
+      ["I need a healthy amount", 10],
+      ["I like closeness, with balance", 9],
+      ["I want constant attention", 4],
+      ["I disappear when overwhelmed", 3],
+    ],
+  },
+  {
+    prompt: "How do you prefer to make plans?",
+    description: "Planning style says a lot.",
+    answers: [
+      ["Plan ahead", 10],
+      ["Loose plan, flexible details", 9],
+      ["Spontaneous is better", 6],
+      ["I avoid planning", 2],
+    ],
+  },
+  {
+    prompt: "What is your money style?",
+    description: "Not about wealth. About habits.",
+    answers: [
+      ["Save first, enjoy second", 10],
+      ["Balanced", 9],
+      ["Spend on experiences", 7],
+      ["I wing it financially", 2],
+    ],
+  },
+  {
+    prompt: "What is your ideal first date vibe?",
+    description: "The energy matters.",
+    answers: [
+      ["Low-pressure and conversational", 10],
+      ["Dinner with effort", 9],
+      ["Something adventurous", 7],
+      ["Club or party", 3],
+    ],
+  },
+  {
+    prompt: "How do you recharge?",
+    description: "Social battery check.",
+    answers: [
+      ["Alone time", 10],
+      ["One-on-one time", 9],
+      ["Small group hangout", 7],
+      ["Big social scene", 4],
+    ],
+  },
+  {
+    prompt: "How direct are you?",
+    description: "Can you say the thing?",
+    answers: [
+      ["Very direct", 10],
+      ["Direct but gentle", 10],
+      ["Depends on the situation", 6],
+      ["I bottle things up", 2],
+    ],
+  },
+  {
+    prompt: "How do you feel about fitness or health?",
+    description: "General lifestyle alignment.",
+    answers: [
+      ["It is part of my life", 10],
+      ["I try to stay balanced", 8],
+      ["I am inconsistent", 5],
+      ["I do not care much", 2],
+    ],
+  },
+  {
+    prompt: "How affectionate are you?",
+    description: "Public and private affection count.",
+    answers: [
+      ["Very affectionate", 10],
+      ["Warm but not clingy", 10],
+      ["A little reserved", 6],
+      ["Not affectionate", 2],
+    ],
+  },
+  {
+    prompt: "How do you handle jealousy?",
+    description: "Green flag or problem area.",
+    answers: [
+      ["I communicate calmly", 10],
+      ["I need reassurance sometimes", 7],
+      ["I get suspicious easily", 3],
+      ["I test people", 0],
+    ],
+  },
+  {
+    prompt: "What pace feels right in dating?",
+    description: "How fast should things move?",
+    answers: [
+      ["Intentional but not rushed", 10],
+      ["Slow and steady", 8],
+      ["Fast if it feels right", 7],
+      ["No direction, just vibes", 3],
+    ],
+  },
+  {
+    prompt: "What is your relationship goal?",
+    description: "This one should be obvious, but here we are.",
+    answers: [
+      ["Something serious", 10],
+      ["Open to serious with the right person", 9],
+      ["Keeping it casual", 4],
+      ["I do not know", 3],
+    ],
+  },
+  {
+    prompt: "How do you treat routines?",
+    description: "Structure or chaos?",
+    answers: [
+      ["I like routine", 10],
+      ["Some routine, some flexibility", 9],
+      ["I prefer spontaneity", 6],
+      ["My life is chaos", 2],
+    ],
+  },
+  {
+    prompt: "How do you act around friends?",
+    description: "Social character check.",
+    answers: [
+      ["Loyal and present", 10],
+      ["Fun but grounded", 9],
+      ["I am the wildcard", 5],
+      ["I bring drama", 0],
+    ],
+  },
+  {
+    prompt: "How do you feel about sarcasm?",
+    description: "Important for survival.",
+    answers: [
+      ["Love it when it is clever", 10],
+      ["Fine in moderation", 8],
+      ["Not really my thing", 5],
+      ["I take everything personally", 2],
+    ],
+  },
+  {
+    prompt: "What kind of communication feels best?",
+    description: "The default channel.",
+    answers: [
+      ["Clear and consistent", 10],
+      ["Warm and expressive", 9],
+      ["Short and practical", 6],
+      ["Hard to reach", 2],
+    ],
+  },
+  {
+    prompt: "How do you respond to stress?",
+    description: "Pressure reveals a lot.",
+    answers: [
+      ["I get quiet and solve it", 10],
+      ["I talk it through", 9],
+      ["I need support", 7],
+      ["I spiral outward", 2],
+    ],
+  },
+  {
+    prompt: "How clean are you?",
+    description: "Simple but important.",
+    answers: [
+      ["Very clean", 10],
+      ["Reasonably clean", 8],
+      ["Messy but functional", 4],
+      ["Disaster zone", 1],
+    ],
+  },
+  {
+    prompt: "How do you feel about learning new things?",
+    description: "Curiosity check.",
+    answers: [
+      ["I love learning", 10],
+      ["I am curious about some things", 8],
+      ["Only when necessary", 4],
+      ["Not interested", 1],
+    ],
+  },
+  {
+    prompt: "What kind of loyalty matters most?",
+    description: "Pick the one that sounds like you.",
+    answers: [
+      ["Private consistency", 10],
+      ["Public support", 8],
+      ["Emotional reassurance", 7],
+      ["I keep my options open", 1],
+    ],
+  },
+  {
+    prompt: "What makes someone attractive long-term?",
+    description: "Past the first impression.",
+    answers: [
+      ["Character and consistency", 10],
+      ["Humor and chemistry", 9],
+      ["Ambition and lifestyle", 8],
+      ["Looks mostly", 4],
+    ],
+  },
+];
+
+const fallbackResultBands = [
+  {
+    id: "fallback-0",
+    min_percent: 0,
+    max_percent: 39,
+    title: "Not My Type",
+    message: "The compatibility is low, but thanks for taking the test.",
+    sort_order: 1,
+  },
+  {
+    id: "fallback-1",
+    min_percent: 40,
+    max_percent: 59,
+    title: "Mixed Signal",
+    message: "There are some overlaps, but some important gaps too.",
+    sort_order: 2,
+  },
+  {
+    id: "fallback-2",
+    min_percent: 60,
+    max_percent: 79,
+    title: "Promising",
+    message: "This has enough alignment to be interesting.",
+    sort_order: 3,
+  },
+  {
+    id: "fallback-3",
+    min_percent: 80,
+    max_percent: 100,
+    title: "Strong Match",
+    message: "This looks like a strong compatibility match.",
+    sort_order: 4,
+  },
+];
+
 function getViewFromPath(pathname) {
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
@@ -96,6 +384,18 @@ function getCompatibilityTier(percent) {
   if (percent >= 60) return "Promising";
   if (percent >= 40) return "Mixed Signal";
   return "Not My Type";
+}
+
+function pickResultBand(percent, bands = fallbackResultBands) {
+  return (
+    bands.find(
+      (band) => percent >= Number(band.min_percent) && percent <= Number(band.max_percent)
+    ) || bands[bands.length - 1]
+  );
+}
+
+function pickRandomItem(items) {
+  return items[Math.floor(Math.random() * items.length)];
 }
 
 function getSliderColor(value, max) {
@@ -383,6 +683,7 @@ function FineCalculator({ navigate }) {
 
 function CompatibilityTest({ navigate }) {
   const [questions, setQuestions] = useState([]);
+  const [resultBands, setResultBands] = useState(fallbackResultBands);
   const [answers, setAnswers] = useState({});
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -398,18 +699,29 @@ function CompatibilityTest({ navigate }) {
     setLoading(true);
     setError("");
 
-    const { data, error: loadError } = await supabase
-      .from("compatibility_questions")
-      .select("id,prompt,description,sort_order,compatibility_options(id,label,points,sort_order)")
-      .eq("active", true)
-      .order("sort_order", { ascending: true })
-      .order("sort_order", { referencedTable: "compatibility_options", ascending: true });
+    const [{ data, error: loadError }, { data: bandData }] = await Promise.all([
+      supabase
+        .from("compatibility_questions")
+        .select(
+          "id,prompt,description,description_enabled,sort_order,compatibility_options(id,label,points,sort_order)"
+        )
+        .eq("active", true)
+        .order("sort_order", { ascending: true })
+        .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
+      supabase
+        .from("compatibility_result_bands")
+        .select("id,min_percent,max_percent,title,message,sort_order")
+        .order("sort_order", { ascending: true }),
+    ]);
 
     if (loadError) {
       setError("The compatibility test is not set up yet.");
       setQuestions([]);
     } else {
       setQuestions(data || []);
+      if (bandData?.length) {
+        setResultBands(bandData);
+      }
     }
 
     setLoading(false);
@@ -429,8 +741,15 @@ function CompatibilityTest({ navigate }) {
     }, 0);
 
     const percent = maxScore ? Math.round((score / maxScore) * 100) : 0;
-    return { score, maxScore, percent, tier: getCompatibilityTier(percent) };
-  }, [answers, questions]);
+    const band = pickResultBand(percent, resultBands);
+    return {
+      score,
+      maxScore,
+      percent,
+      tier: band?.title || getCompatibilityTier(percent),
+      message: band?.message || "",
+    };
+  }, [answers, questions, resultBands]);
 
   const submitTest = async (event) => {
     event.preventDefault();
@@ -451,6 +770,7 @@ function CompatibilityTest({ navigate }) {
         max_score: totals.maxScore,
         percent: totals.percent,
         result_tier: totals.tier,
+        result_message: totals.message,
       })
       .select("id")
       .single();
@@ -525,7 +845,7 @@ function CompatibilityTest({ navigate }) {
                   Question {index + 1}
                 </legend>
                 <h2 className="mt-2 text-xl font-black text-white">{question.prompt}</h2>
-                {question.description && (
+                {question.description_enabled !== false && question.description && (
                   <p className="mt-2 text-sm leading-6 text-zinc-400">{question.description}</p>
                 )}
                 <div className="mt-4 grid gap-2">
@@ -572,6 +892,7 @@ function CompatibilityTest({ navigate }) {
             </p>
             <p className="mt-3 text-6xl font-black">{result.percent}%</p>
             <p className="mt-4 text-2xl font-black text-cyan-600">{result.tier}</p>
+            {result.message && <p className="mt-3 leading-6 text-zinc-600">{result.message}</p>}
             <p className="mt-3 text-zinc-600">
               Your answers were saved. Tyrone can review the full submission.
             </p>
@@ -834,6 +1155,7 @@ function AdminPanel({ navigate }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [questions, setQuestions] = useState([]);
+  const [resultBands, setResultBands] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
@@ -871,29 +1193,41 @@ function AdminPanel({ navigate }) {
     setMessage("");
     setSetupNeeded(false);
 
-    const [{ data: questionData, error: questionError }, { data: submissionData, error: submissionError }] =
+    const [
+      { data: questionData, error: questionError },
+      { data: submissionData, error: submissionError },
+      { data: bandData, error: bandError },
+    ] =
       await Promise.all([
         supabase
           .from("compatibility_questions")
-          .select("id,prompt,description,sort_order,active,compatibility_options(id,label,points,sort_order)")
+          .select(
+            "id,prompt,description,description_enabled,sort_order,active,compatibility_options(id,label,points,sort_order)"
+          )
           .order("sort_order", { ascending: true })
           .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
         supabase
           .from("compatibility_submissions")
-          .select("id,name,contact,score,max_score,percent,result_tier,created_at,compatibility_answers(question_prompt,option_label,points)")
+          .select("id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
           .order("created_at", { ascending: false }),
+        supabase
+          .from("compatibility_result_bands")
+          .select("id,min_percent,max_percent,title,message,sort_order")
+          .order("sort_order", { ascending: true }),
       ]);
 
-    if (questionError || submissionError) {
+    if (questionError || submissionError || bandError) {
       setSetupNeeded(true);
       setError("");
       setQuestions([]);
       setSubmissions([]);
+      setResultBands([]);
       return;
     }
 
     setQuestions(questionData || []);
     setSubmissions(submissionData || []);
+    setResultBands(bandData?.length ? bandData : fallbackResultBands);
   };
 
   const login = async (event) => {
@@ -912,14 +1246,15 @@ function AdminPanel({ navigate }) {
     setSession(null);
   };
 
-  const addQuestion = async () => {
+  const addQuestion = async (template = null) => {
     setError("");
     const nextOrder = questions.length + 1;
     const { data, error: insertError } = await supabase
       .from("compatibility_questions")
       .insert({
-        prompt: "New question",
-        description: "",
+        prompt: template?.prompt || "New question",
+        description: template?.description || "",
+        description_enabled: Boolean(template?.description),
         sort_order: nextOrder,
         active: true,
       })
@@ -931,14 +1266,58 @@ function AdminPanel({ navigate }) {
       return;
     }
 
-    await supabase.from("compatibility_options").insert([
-      { question_id: data.id, label: "Best answer", points: 10, sort_order: 1 },
-      { question_id: data.id, label: "Okay answer", points: 5, sort_order: 2 },
-      { question_id: data.id, label: "Bad answer", points: 0, sort_order: 3 },
-    ]);
+    const answers =
+      template?.answers || [
+        ["Best answer", 10],
+        ["Good answer", 7],
+        ["Okay answer", 4],
+        ["Bad answer", 0],
+      ];
 
-    setMessage("Question added.");
+    await supabase.from("compatibility_options").insert(
+      answers.map(([label, points], index) => ({
+        question_id: data.id,
+        label,
+        points,
+        sort_order: index + 1,
+      }))
+    );
+
+    setMessage(template ? "Random question added." : "Question added.");
     loadAdminData();
+  };
+
+  const addRandomQuestion = () => {
+    addQuestion(pickRandomItem(randomQuestionBank));
+  };
+
+  const fillRandomQuestion = async (questionId) => {
+    const template = pickRandomItem(randomQuestionBank);
+    await updateQuestion(questionId, {
+      prompt: template.prompt,
+      description: template.description,
+      description_enabled: true,
+    });
+
+    const question = questions.find((item) => item.id === questionId);
+    const options = question?.compatibility_options || [];
+    await Promise.all(
+      options.map((option, index) => {
+        const answer = template.answers[index] || template.answers[template.answers.length - 1];
+        return supabase
+          .from("compatibility_options")
+          .update({ label: answer[0], points: answer[1], sort_order: index + 1 })
+          .eq("id", option.id);
+      })
+    );
+    setMessage("Question randomized.");
+    loadAdminData();
+  };
+
+  const fillRandomAnswer = async (questionId, optionId) => {
+    const template = pickRandomItem(randomQuestionBank);
+    const answer = pickRandomItem(template.answers);
+    await updateOption(questionId, optionId, { label: answer[0], points: answer[1] });
   };
 
   const updateQuestion = async (id, changes) => {
@@ -1021,6 +1400,50 @@ function AdminPanel({ navigate }) {
     loadAdminData();
   };
 
+  const updateResultBand = async (id, changes) => {
+    setResultBands((current) =>
+      current.map((band) => (band.id === id ? { ...band, ...changes } : band))
+    );
+
+    const { error: updateError } = await supabase
+      .from("compatibility_result_bands")
+      .update(changes)
+      .eq("id", id);
+
+    if (updateError) setError(updateError.message);
+  };
+
+  const addResultBand = async () => {
+    const { error: insertError } = await supabase.from("compatibility_result_bands").insert({
+      min_percent: 0,
+      max_percent: 100,
+      title: "Custom Result",
+      message: "Write the result text here.",
+      sort_order: resultBands.length + 1,
+    });
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    loadAdminData();
+  };
+
+  const deleteResultBand = async (id) => {
+    const { error: deleteError } = await supabase
+      .from("compatibility_result_bands")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setResultBands((current) => current.filter((band) => band.id !== id));
+  };
+
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-xl px-5 py-12 text-zinc-300">Loading admin...</main>
@@ -1071,6 +1494,15 @@ function AdminPanel({ navigate }) {
           >
             Results
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("advanced")}
+            className={`rounded-full px-4 py-2 text-sm font-black ${
+              tab === "advanced" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
+            }`}
+          >
+            Advanced Settings
+          </button>
         </div>
 
         {error && (
@@ -1101,13 +1533,22 @@ function AdminPanel({ navigate }) {
 
         {!setupNeeded && tab === "questions" && (
           <div className="mt-8">
-            <button
-              type="button"
-              onClick={addQuestion}
-              className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
-            >
-              Add Question
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => addQuestion()}
+                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
+              >
+                Add Question
+              </button>
+              <button
+                type="button"
+                onClick={addRandomQuestion}
+                className="rounded-md bg-white/10 px-5 py-3 font-black text-white transition hover:bg-white/20"
+              >
+                Add Random Question
+              </button>
+            </div>
 
             <div className="mt-6 grid gap-5">
               {questions.map((question) => (
@@ -1139,37 +1580,80 @@ function AdminPanel({ navigate }) {
                       />
                     </label>
                     <label className="flex items-end gap-2 pb-2 text-sm font-bold text-zinc-200">
-                      <input
-                        type="checkbox"
-                        checked={question.active}
-                        onChange={(event) =>
-                          updateQuestion(question.id, { active: event.target.checked })
-                        }
-                      />
-                      Active
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(question.id, { active: !question.active })}
+                        className={`relative h-7 w-14 rounded-full transition ${
+                          question.active ? "bg-emerald-400" : "bg-red-500"
+                        }`}
+                        aria-label={question.active ? "Disable question" : "Enable question"}
+                      >
+                        <span
+                          className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
+                            question.active ? "left-8" : "left-1"
+                          }`}
+                        />
+                      </button>
+                      {question.active ? "Active" : "Inactive"}
                     </label>
                   </div>
 
-                  <label className="mt-3 block">
-                    <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
                       Description
-                    </span>
-                    <textarea
-                      value={question.description || ""}
-                      onChange={(event) =>
-                        updateQuestion(question.id, { description: event.target.value })
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateQuestion(question.id, {
+                          description_enabled: question.description_enabled === false,
+                        })
                       }
-                      rows="2"
-                      className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
-                    />
-                  </label>
+                      className={`relative h-7 w-14 rounded-full transition ${
+                        question.description_enabled !== false ? "bg-emerald-400" : "bg-red-500"
+                      }`}
+                      aria-label="Toggle description"
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
+                          question.description_enabled !== false ? "left-8" : "left-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {question.description_enabled !== false && (
+                    <label className="mt-3 block">
+                      <textarea
+                        value={question.description || ""}
+                        onChange={(event) =>
+                          updateQuestion(question.id, { description: event.target.value })
+                        }
+                        rows="2"
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                      />
+                    </label>
+                  )}
 
                   <div className="mt-4 grid gap-3">
+                    <div className="hidden grid-cols-[1fr_180px_auto] gap-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-400 md:grid">
+                      <span>Answer</span>
+                      <span>How compatible is this answer?</span>
+                      <span />
+                    </div>
                     {(question.compatibility_options || []).map((option) => (
                       <div
                         key={option.id}
-                        className="grid gap-2 rounded-md bg-white/5 p-3 md:grid-cols-[1fr_90px_90px_auto]"
+                        className="grid gap-2 rounded-md bg-white/5 p-3 md:grid-cols-[auto_1fr_180px_auto]"
                       >
+                        <button
+                          type="button"
+                          onClick={() => fillRandomAnswer(question.id, option.id)}
+                          className="rounded-md border border-white/10 px-3 py-2 text-lg transition hover:border-cyan-300 hover:-translate-y-1"
+                          title="Random answer"
+                        >
+                          Dice
+                        </button>
                         <input
                           value={option.label}
                           onChange={(event) =>
@@ -1187,17 +1671,6 @@ function AdminPanel({ navigate }) {
                           }
                           className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
                           aria-label="Points"
-                        />
-                        <input
-                          type="number"
-                          value={option.sort_order}
-                          onChange={(event) =>
-                            updateOption(question.id, option.id, {
-                              sort_order: Number(event.target.value),
-                            })
-                          }
-                          className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
-                          aria-label="Order"
                         />
                         <button
                           type="button"
@@ -1224,6 +1697,13 @@ function AdminPanel({ navigate }) {
                       className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
                     >
                       Delete Question
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fillRandomQuestion(question.id)}
+                      className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-cyan-300 hover:text-white"
+                    >
+                      Randomize Question
                     </button>
                   </div>
                 </article>
@@ -1267,6 +1747,115 @@ function AdminPanel({ navigate }) {
                 </div>
               </article>
             ))}
+          </div>
+        )}
+
+        {!setupNeeded && tab === "advanced" && (
+          <div className="mt-8 grid gap-5">
+            <div className="rounded-lg border border-white/10 bg-white/5 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+                Result Text
+              </p>
+              <h2 className="mt-3 text-2xl font-black text-white">Compatibility result bands</h2>
+              <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+                Set the percentage ranges and the custom text people see after finishing the test.
+                Example: 80 to 100 can say whatever you want high matches to see.
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              {resultBands.map((band) => (
+                <article key={band.id} className="rounded-lg border border-white/10 p-4">
+                  <div className="grid gap-3 md:grid-cols-[100px_100px_1fr_90px]">
+                    <label>
+                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                        From %
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={band.min_percent}
+                        onChange={(event) =>
+                          updateResultBand(band.id, { min_percent: Number(event.target.value) })
+                        }
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                        To %
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={band.max_percent}
+                        onChange={(event) =>
+                          updateResultBand(band.id, { max_percent: Number(event.target.value) })
+                        }
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                        Result title
+                      </span>
+                      <input
+                        value={band.title}
+                        onChange={(event) =>
+                          updateResultBand(band.id, { title: event.target.value })
+                        }
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                        Order
+                      </span>
+                      <input
+                        type="number"
+                        value={band.sort_order}
+                        onChange={(event) =>
+                          updateResultBand(band.id, { sort_order: Number(event.target.value) })
+                        }
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                      Custom result message
+                    </span>
+                    <textarea
+                      value={band.message || ""}
+                      onChange={(event) =>
+                        updateResultBand(band.id, { message: event.target.value })
+                      }
+                      rows="3"
+                      className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteResultBand(band.id)}
+                    className="mt-3 rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                  >
+                    Delete Band
+                  </button>
+                </article>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={addResultBand}
+              className="w-fit rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
+            >
+              Add Result Band
+            </button>
           </div>
         )}
       </section>
