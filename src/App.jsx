@@ -1225,7 +1225,12 @@ function AdminPanel({ navigate }) {
 
     if (questionError || submissionError || bandError) {
       setSetupNeeded(true);
-      setError("");
+      setError(
+        questionError?.message ||
+          submissionError?.message ||
+          bandError?.message ||
+          "Supabase could not load the admin tables."
+      );
       setQuestions([]);
       setSubmissions([]);
       setResultBands([]);
@@ -1524,9 +1529,14 @@ function AdminPanel({ navigate }) {
             </p>
             <h2 className="mt-3 text-2xl font-black text-white">One Supabase step remains.</h2>
             <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
-              The login worked. The admin tables just have not been created in Supabase yet, so
-              questions and results cannot load.
+              The login worked, but Supabase could not load one of the admin tables or columns.
+              This usually means the newest SQL setup needs to be run again.
             </p>
+            {error && (
+              <p className="mt-4 rounded-md border border-cyan-300/20 bg-zinc-950 p-3 font-mono text-sm text-cyan-100">
+                {error}
+              </p>
+            )}
             <p className="mt-4 rounded-md bg-white/5 p-3 font-mono text-sm text-zinc-200">
               Run C:\Users\dog_t\Desktop\thefinetest-live\supabase-setup.sql in Supabase SQL Editor.
             </p>
