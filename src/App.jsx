@@ -33,6 +33,7 @@ const routes = {
   hub: "/",
   calculator: "/calculator",
   compatibility: "/compatibility",
+  login: "/login",
   admin: "/admin",
 };
 
@@ -72,6 +73,7 @@ const tierDescriptions = {
 function getViewFromPath(pathname) {
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
+  if (pathname === routes.login) return "login";
   if (pathname === routes.admin) return "admin";
   return "hub";
 }
@@ -517,6 +519,177 @@ function CompatibilityTest({ navigate }) {
   );
 }
 
+function LoginPage({ navigate }) {
+  const [mode, setMode] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        navigate("admin", true);
+      }
+      setLoading(false);
+    });
+  }, [navigate]);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    const result =
+      mode === "signin"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/admin`,
+            },
+          });
+
+    if (result.error) {
+      setError(result.error.message);
+    } else if (mode === "signup") {
+      setMessage("Account created. Check your email if Supabase asks for confirmation.");
+    } else {
+      navigate("admin", true);
+    }
+
+    setBusy(false);
+  };
+
+  const socialLogin = async (provider) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    const { error: socialError } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/admin`,
+      },
+    });
+
+    if (socialError) {
+      setError(socialError.message);
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <main className="mx-auto w-full max-w-md px-5 py-12 text-zinc-300">Loading...</main>;
+  }
+
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-12">
+      <BackButton onClick={() => navigate("hub")} />
+
+      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30">
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">
+          Account
+        </p>
+        <h1 className="mt-4 text-4xl font-black text-white">
+          {mode === "signin" ? "Sign in" : "Sign up"}
+        </h1>
+
+        <div className="mt-6 grid grid-cols-2 rounded-full bg-white/5 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("signin")}
+            className={`rounded-full py-2 text-sm font-black transition ${
+              mode === "signin" ? "bg-white text-zinc-950" : "text-zinc-300"
+            }`}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("signup")}
+            className={`rounded-full py-2 text-sm font-black transition ${
+              mode === "signup" ? "bg-white text-zinc-950" : "text-zinc-300"
+            }`}
+          >
+            Sign up
+          </button>
+        </div>
+
+        <div className="mt-6 grid gap-3">
+          <button
+            type="button"
+            onClick={() => socialLogin("google")}
+            disabled={busy}
+            className="rounded-md border border-white/10 bg-white px-4 py-3 font-black text-zinc-950 transition hover:bg-rose-100 disabled:opacity-60"
+          >
+            Continue with Google
+          </button>
+          <button
+            type="button"
+            onClick={() => socialLogin("facebook")}
+            disabled={busy}
+            className="rounded-md border border-white/10 bg-[#1877f2] px-4 py-3 font-black text-white transition hover:bg-[#0f63ce] disabled:opacity-60"
+          >
+            Continue with Facebook
+          </button>
+        </div>
+
+        <div className="my-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+          <span className="h-px flex-1 bg-white/10" />
+          or
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-md border border-rose-300/30 bg-rose-950/30 p-3 text-rose-100">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="mb-4 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
+            {message}
+          </div>
+        )}
+
+        <form onSubmit={submit} className="grid gap-4">
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
+            placeholder="Email"
+            required
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
+            placeholder="Password"
+            required
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-md bg-rose-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
+          >
+            {busy ? "One sec..." : mode === "signin" ? "Sign In" : "Create Account"}
+          </button>
+        </form>
+
+        <p className="mt-5 text-sm leading-6 text-zinc-400">
+          Google and Facebook must be enabled in Supabase before those buttons work.
+        </p>
+      </section>
+    </main>
+  );
+}
+
 function AdminPanel({ navigate }) {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
@@ -546,6 +719,12 @@ function AdminPanel({ navigate }) {
       loadAdminData();
     }
   }, [session]);
+
+  useEffect(() => {
+    if (!loading && !session) {
+      navigate("login", true);
+    }
+  }, [loading, session, navigate]);
 
   const loadAdminData = async () => {
     setError("");
@@ -708,46 +887,8 @@ function AdminPanel({ navigate }) {
 
   if (!session) {
     return (
-      <main className="mx-auto w-full max-w-xl px-5 py-12">
-        <BackButton onClick={() => navigate("hub")} />
-        <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30">
-          <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">Admin</p>
-          <h1 className="mt-4 text-4xl font-black text-white">Sign in</h1>
-          <p className="mt-4 leading-7 text-zinc-300">
-            Use the admin user you create in Supabase Auth.
-          </p>
-
-          {error && (
-            <div className="mt-5 rounded-md border border-rose-300/30 bg-rose-950/30 p-3 text-rose-100">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={login} className="mt-6 grid gap-4">
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
-              placeholder="Email"
-              required
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
-              placeholder="Password"
-              required
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-rose-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-white"
-            >
-              Sign In
-            </button>
-          </form>
-        </section>
+      <main className="mx-auto w-full max-w-md px-5 py-12 text-zinc-300">
+        Redirecting to login...
       </main>
     );
   }
@@ -988,10 +1129,14 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigate = (nextView) => {
+  const navigate = (nextView, replace = false) => {
     const nextPath = routes[nextView] || routes.hub;
     if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, "", nextPath);
+      if (replace) {
+        window.history.replaceState({}, "", nextPath);
+      } else {
+        window.history.pushState({}, "", nextPath);
+      }
     }
     setView(nextView);
   };
@@ -1002,6 +1147,7 @@ export default function App() {
       {view === "hub" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "compatibility" && <CompatibilityTest navigate={navigate} />}
+      {view === "login" && <LoginPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} />}
     </div>
   );
