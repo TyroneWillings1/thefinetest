@@ -420,6 +420,21 @@ function pickResultBand(percent, bands = fallbackResultBands) {
   );
   if (match) return match;
 
+  if (bands.length) {
+    return bands.reduce((nearest, band) => {
+      const bandDistance = Math.min(
+        Math.abs(percent - Number(band.min_percent)),
+        Math.abs(percent - Number(band.max_percent))
+      );
+      const nearestDistance = Math.min(
+        Math.abs(percent - Number(nearest.min_percent)),
+        Math.abs(percent - Number(nearest.max_percent))
+      );
+
+      return bandDistance < nearestDistance ? band : nearest;
+    }, bands[0]);
+  }
+
   const fallbackMatch = fallbackResultBands.find(
     (band) => percent >= Number(band.min_percent) && percent <= Number(band.max_percent)
   );
@@ -2176,8 +2191,8 @@ function AdminPanel({ navigate }) {
                 <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-950/20 p-4 text-amber-100">
                   <p className="font-black">Some percentages do not have a custom margin yet.</p>
                   <p className="mt-1 text-sm leading-6">
-                    Missing: {allResultMarginGaps.join(", ")}. Those scores will use the default
-                    result text until you add a custom margin for them.
+                    Missing: {allResultMarginGaps.join(", ")}. Those scores will use the nearest
+                    custom margin until you add an exact range.
                   </p>
                 </div>
               )}
