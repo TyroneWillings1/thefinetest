@@ -415,11 +415,15 @@ function settingsByKey(settings = []) {
 }
 
 function pickResultBand(percent, bands = fallbackResultBands) {
-  return (
-    bands.find(
-      (band) => percent >= Number(band.min_percent) && percent <= Number(band.max_percent)
-    ) || bands[bands.length - 1]
+  const match = bands.find(
+    (band) => percent >= Number(band.min_percent) && percent <= Number(band.max_percent)
   );
+  if (match) return match;
+
+  const fallbackMatch = fallbackResultBands.find(
+    (band) => percent >= Number(band.min_percent) && percent <= Number(band.max_percent)
+  );
+  return fallbackMatch || fallbackResultBands[fallbackResultBands.length - 1];
 }
 
 function pickRandomItem(items) {
@@ -1693,6 +1697,29 @@ function AdminPanel({ navigate }) {
     setSubmissions((current) => current.filter((submission) => submission.id !== id));
   };
 
+  const sortedResultMargins = [...resultBands].sort(
+    (a, b) => Number(a.min_percent) - Number(b.min_percent)
+  );
+  const resultMarginGaps = sortedResultMargins.reduce((gaps, margin, index) => {
+    const min = Number(margin.min_percent);
+    const previousMax = index === 0 ? -1 : Number(sortedResultMargins[index - 1].max_percent);
+
+    if (index === 0 && min > 0) {
+      return [...gaps, `0-${min - 1}%`];
+    }
+
+    if (index > 0 && min > previousMax + 1) {
+      return [...gaps, `${previousMax + 1}-${min - 1}%`];
+    }
+
+    return gaps;
+  }, []);
+  const lastMarginMax = sortedResultMargins.length
+    ? Number(sortedResultMargins[sortedResultMargins.length - 1].max_percent)
+    : 100;
+  const allResultMarginGaps =
+    lastMarginMax < 100 ? [...resultMarginGaps, `${lastMarginMax + 1}-100%`] : resultMarginGaps;
+
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-xl px-5 py-12 text-zinc-300">Loading admin...</main>
@@ -2143,6 +2170,15 @@ function AdminPanel({ navigate }) {
                       </p>
                     ))}
                   </div>
+                </div>
+              )}
+              {advancedResultsOn && allResultMarginGaps.length > 0 && (
+                <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-950/20 p-4 text-amber-100">
+                  <p className="font-black">Some percentages do not have a custom margin yet.</p>
+                  <p className="mt-1 text-sm leading-6">
+                    Missing: {allResultMarginGaps.join(", ")}. Those scores will use the default
+                    result text until you add a custom margin for them.
+                  </p>
                 </div>
               )}
             </div>
