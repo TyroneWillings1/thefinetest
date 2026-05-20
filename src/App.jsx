@@ -100,9 +100,9 @@ function getCompatibilityTier(percent) {
 
 function getSliderColor(value, max) {
   const percent = max ? value / max : 0;
-  if (percent < 0.34) return "#fb7185";
-  if (percent < 0.67) return "#facc15";
-  return "#4ade80";
+  if (percent < 0.34) return "#38bdf8";
+  if (percent < 0.67) return "#22d3ee";
+  return "#a3e635";
 }
 
 function BackButton({ onClick }) {
@@ -110,7 +110,7 @@ function BackButton({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="mb-6 text-xs font-black uppercase tracking-[0.24em] text-rose-300 transition hover:text-white"
+      className="mb-6 text-xs font-black uppercase tracking-[0.24em] text-cyan-300 transition hover:text-white"
     >
       Back to tests
     </button>
@@ -128,7 +128,7 @@ function AccountDrawer({ onClose, navigate }) {
       />
       <aside className="absolute right-0 top-0 flex h-full w-full max-w-xs flex-col border-l border-white/10 bg-zinc-950 p-5 shadow-2xl shadow-black/50">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-300">Account</p>
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">Account</p>
           <button
             type="button"
             onClick={onClose}
@@ -150,7 +150,7 @@ function AccountDrawer({ onClose, navigate }) {
           <button
             type="button"
             onClick={() => navigate("admin")}
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-rose-300/50"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
           >
             <span className="block text-lg font-black text-white">Compatibility Tests</span>
             <span className="mt-1 block text-sm text-zinc-400">Manage questions and results</span>
@@ -189,10 +189,10 @@ function Hub({ navigate }) {
         type="button"
         onClick={openAccount}
         aria-label="Login"
-        className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-rose-100"
+        className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-cyan-100"
       />
 
-      <p className="mb-5 text-sm font-black uppercase tracking-[0.32em] text-rose-300">
+      <p className="mb-5 text-sm font-black uppercase tracking-[0.32em] text-cyan-300">
         Choose your test
       </p>
 
@@ -203,7 +203,7 @@ function Hub({ navigate }) {
           className="group rounded-lg border border-white/10 bg-white p-6 text-left text-zinc-950 shadow-2xl shadow-black/30 transition hover:-translate-y-1"
         >
           <div className="mb-12 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.3em] text-rose-600">
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-cyan-600">
               Original
             </span>
             <span className="text-2xl font-black transition group-hover:translate-x-1">Go</span>
@@ -215,10 +215,10 @@ function Hub({ navigate }) {
         <button
           type="button"
           onClick={() => navigate("compatibility")}
-          className="group rounded-lg border border-white/10 bg-zinc-900 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-rose-300/40"
+          className="group rounded-lg border border-white/10 bg-zinc-900 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-300/40"
         >
           <div className="mb-12 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.3em] text-rose-300">
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
               New
             </span>
             <span className="text-2xl font-black transition group-hover:translate-x-1">Go</span>
@@ -273,7 +273,7 @@ function FineCalculator({ navigate }) {
           <h1 className="text-center text-4xl font-black tracking-tight text-white">
             The F.I.N.E. Test
           </h1>
-          <p className="mt-3 text-center text-sm font-black uppercase tracking-[0.24em] text-rose-300">
+          <p className="mt-3 text-center text-sm font-black uppercase tracking-[0.24em] text-cyan-300">
             Figure / Intellect / Nature / Energy
           </p>
           <p className="mx-auto mt-4 max-w-md text-center leading-7 text-zinc-300">
@@ -306,7 +306,7 @@ function FineCalculator({ navigate }) {
                           max={trait.max}
                           value={value}
                           onChange={(event) => handleSlider(trait.label, event.target.value)}
-                          className="h-2 w-full cursor-pointer appearance-none rounded-full accent-rose-400"
+                          className="h-2 w-full cursor-pointer appearance-none rounded-full accent-cyan-400"
                           style={{
                             background: `linear-gradient(to right, ${color} ${fill}%, #3f3f46 ${fill}%)`,
                           }}
@@ -323,7 +323,7 @@ function FineCalculator({ navigate }) {
             <button
               type="button"
               onClick={showFinalResults}
-              className="rounded-md bg-rose-300 px-8 py-3 text-lg font-black text-zinc-950 transition hover:bg-white"
+              className="rounded-md bg-cyan-300 px-8 py-3 text-lg font-black text-zinc-950 transition hover:bg-white"
             >
               See Results
             </button>
@@ -342,13 +342,13 @@ function FineCalculator({ navigate }) {
                   className="flex items-center justify-between rounded-md bg-white/5 px-4 py-3"
                 >
                   <span className="font-bold text-zinc-200">{category}</span>
-                  <span className="text-xl font-black text-rose-300">{categoryTotal(traits)}</span>
+                  <span className="text-xl font-black text-cyan-300">{categoryTotal(traits)}</span>
                 </div>
               ))}
           </div>
 
           {hasWildcard && (
-            <p className="mt-5 text-sm font-bold uppercase tracking-[0.22em] text-rose-300">
+            <p className="mt-5 text-sm font-bold uppercase tracking-[0.22em] text-cyan-300">
               Wildcard Bonus: {scores.Wildcard}
             </p>
           )}
@@ -357,7 +357,7 @@ function FineCalculator({ navigate }) {
             Total Score
           </p>
           <p className="mt-1 text-6xl font-black text-white">{totalScore}</p>
-          <p className="mt-5 text-2xl font-black text-rose-300">{resultLine}</p>
+          <p className="mt-5 text-2xl font-black text-cyan-300">{resultLine}</p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <button
@@ -370,7 +370,7 @@ function FineCalculator({ navigate }) {
             <button
               type="button"
               onClick={resetTest}
-              className="rounded-md bg-rose-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
+              className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
             >
               Start New Test
             </button>
@@ -491,7 +491,7 @@ function CompatibilityTest({ navigate }) {
       <BackButton onClick={() => navigate("hub")} />
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
-        <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
           Compatibility
         </p>
         <h1 className="mt-4 text-4xl font-black text-white">Tyrone's Test</h1>
@@ -502,7 +502,7 @@ function CompatibilityTest({ navigate }) {
         {loading && <p className="mt-8 text-zinc-300">Loading questions...</p>}
 
         {!loading && error && (
-          <div className="mt-8 rounded-lg border border-rose-300/30 bg-rose-950/30 p-4 text-rose-100">
+          <div className="mt-8 rounded-lg border border-cyan-300/30 bg-cyan-950/30 p-4 text-cyan-100">
             {error}
           </div>
         )}
@@ -514,14 +514,14 @@ function CompatibilityTest({ navigate }) {
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
+                className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
                 placeholder="Optional"
               />
             </label>
 
             {questions.map((question, index) => (
               <fieldset key={question.id} className="rounded-lg border border-white/10 p-4">
-                <legend className="px-2 text-sm font-black uppercase tracking-[0.18em] text-rose-300">
+                <legend className="px-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-300">
                   Question {index + 1}
                 </legend>
                 <h2 className="mt-2 text-xl font-black text-white">{question.prompt}</h2>
@@ -534,7 +534,7 @@ function CompatibilityTest({ navigate }) {
                       key={option.id}
                       className={`flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 transition ${
                         answers[question.id] === option.id
-                          ? "border-rose-300 bg-rose-300 text-zinc-950"
+                          ? "border-cyan-300 bg-cyan-300 text-zinc-950"
                           : "border-white/10 bg-white/5 text-zinc-200 hover:border-white/30"
                       }`}
                     >
@@ -558,7 +558,7 @@ function CompatibilityTest({ navigate }) {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-rose-300 px-8 py-3 text-lg font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-cyan-300 px-8 py-3 text-lg font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Submit Test"}
             </button>
@@ -571,7 +571,7 @@ function CompatibilityTest({ navigate }) {
               Your Result
             </p>
             <p className="mt-3 text-6xl font-black">{result.percent}%</p>
-            <p className="mt-4 text-2xl font-black text-rose-600">{result.tier}</p>
+            <p className="mt-4 text-2xl font-black text-cyan-600">{result.tier}</p>
             <p className="mt-3 text-zinc-600">
               Your answers were saved. Tyrone can review the full submission.
             </p>
@@ -655,7 +655,7 @@ function LoginPage({ navigate }) {
       <BackButton onClick={() => navigate("hub")} />
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30">
-        <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
           Account
         </p>
         <h1 className="mt-4 text-4xl font-black text-white">
@@ -688,7 +688,7 @@ function LoginPage({ navigate }) {
             type="button"
             onClick={() => socialLogin("google")}
             disabled={busy}
-            className="rounded-md border border-white/10 bg-white px-4 py-3 font-black text-zinc-950 transition hover:bg-rose-100 disabled:opacity-60"
+            className="rounded-md border border-white/10 bg-white px-4 py-3 font-black text-zinc-950 transition hover:bg-cyan-100 disabled:opacity-60"
           >
             Continue with Google
           </button>
@@ -709,7 +709,7 @@ function LoginPage({ navigate }) {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-rose-300/30 bg-rose-950/30 p-3 text-rose-100">
+          <div className="mb-4 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
             {error}
           </div>
         )}
@@ -724,7 +724,7 @@ function LoginPage({ navigate }) {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
+            className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
             placeholder="Email"
             required
           />
@@ -732,14 +732,14 @@ function LoginPage({ navigate }) {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
+            className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
             placeholder="Password"
             required
           />
           <button
             type="submit"
             disabled={busy}
-            className="rounded-md bg-rose-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
+            className="rounded-md bg-cyan-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
           >
             {busy ? "One sec..." : mode === "signin" ? "Sign In" : "Create Account"}
           </button>
@@ -785,7 +785,7 @@ function SettingsPage({ navigate }) {
       <BackButton onClick={() => navigate("hub")} />
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 sm:p-8">
-        <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">Settings</p>
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">Settings</p>
         <h1 className="mt-4 text-4xl font-black text-white">Account Settings</h1>
 
         <div className="mt-8 grid gap-4">
@@ -802,7 +802,7 @@ function SettingsPage({ navigate }) {
             </p>
           </div>
 
-          <div className="rounded-lg border border-rose-300/20 bg-rose-950/20 p-4">
+          <div className="rounded-lg border border-cyan-300/20 bg-cyan-950/20 p-4">
             <h2 className="text-xl font-black text-white">Delete My Account</h2>
             <p className="mt-2 leading-7 text-zinc-300">
               This needs a secure backend action before it can be safely enabled.
@@ -810,7 +810,7 @@ function SettingsPage({ navigate }) {
             <button
               type="button"
               disabled
-              className="mt-4 rounded-md border border-rose-300/20 px-4 py-2 font-black text-rose-200 opacity-60"
+              className="mt-4 rounded-md border border-cyan-300/20 px-4 py-2 font-black text-cyan-200 opacity-60"
             >
               Coming Soon
             </button>
@@ -820,7 +820,7 @@ function SettingsPage({ navigate }) {
         <button
           type="button"
           onClick={signOut}
-          className="mt-8 rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-rose-100"
+          className="mt-8 rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
         >
           Sign Out
         </button>
@@ -1049,7 +1049,7 @@ function AdminPanel({ navigate }) {
       </div>
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
-        <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">Admin</p>
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">Admin</p>
         <h1 className="mt-4 text-4xl font-black text-white">Compatibility Control</h1>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -1074,13 +1074,13 @@ function AdminPanel({ navigate }) {
         </div>
 
         {error && (
-          <div className="mt-5 rounded-md border border-rose-300/30 bg-rose-950/30 p-3 text-rose-100">
+          <div className="mt-5 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
             {error}
           </div>
         )}
         {setupNeeded && (
-          <div className="mt-8 rounded-lg border border-rose-300/30 bg-rose-950/20 p-5">
-            <p className="text-sm font-black uppercase tracking-[0.24em] text-rose-300">
+          <div className="mt-8 rounded-lg border border-cyan-300/30 bg-cyan-950/20 p-5">
+            <p className="text-sm font-black uppercase tracking-[0.24em] text-cyan-300">
               Database setup needed
             </p>
             <h2 className="mt-3 text-2xl font-black text-white">One Supabase step remains.</h2>
@@ -1104,7 +1104,7 @@ function AdminPanel({ navigate }) {
             <button
               type="button"
               onClick={addQuestion}
-              className="rounded-md bg-rose-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
+              className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
             >
               Add Question
             </button>
@@ -1202,7 +1202,7 @@ function AdminPanel({ navigate }) {
                         <button
                           type="button"
                           onClick={() => deleteOption(option.id)}
-                          className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 transition hover:border-rose-300 hover:text-rose-200"
+                          className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 transition hover:border-cyan-300 hover:text-cyan-200"
                         >
                           Delete
                         </button>
@@ -1221,7 +1221,7 @@ function AdminPanel({ navigate }) {
                     <button
                       type="button"
                       onClick={() => deleteQuestion(question.id)}
-                      className="rounded-md border border-rose-300/30 px-4 py-2 text-sm font-black text-rose-200 transition hover:bg-rose-950/50"
+                      className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
                     >
                       Delete Question
                     </button>
@@ -1251,7 +1251,7 @@ function AdminPanel({ navigate }) {
                   </div>
                   <div className="rounded-md bg-white p-4 text-center text-zinc-950">
                     <p className="text-3xl font-black">{submission.percent}%</p>
-                    <p className="text-sm font-black text-rose-600">{submission.result_tier}</p>
+                    <p className="text-sm font-black text-cyan-600">{submission.result_tier}</p>
                   </div>
                 </div>
 
@@ -1310,3 +1310,4 @@ export default function App() {
     </div>
   );
 }
+
