@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const traitGroups = {
   Figure: [
@@ -70,6 +70,18 @@ const compatibilityQuestions = [
     weight: 8,
   },
 ];
+
+const routes = {
+  hub: "/",
+  calculator: "/calculator",
+  compatibility: "/compatibility",
+};
+
+function getViewFromPath(pathname) {
+  if (pathname === routes.calculator) return "calculator";
+  if (pathname === routes.compatibility) return "compatibility";
+  return "hub";
+}
 
 const tierDescriptions = {
   Unicorn: [
@@ -149,7 +161,7 @@ function BackButton({ onClick }) {
   );
 }
 
-function Hub({ setView }) {
+function Hub({ navigate }) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-12">
       <p className="mb-5 text-sm font-black uppercase tracking-[0.32em] text-rose-300">
@@ -159,7 +171,7 @@ function Hub({ setView }) {
       <section className="grid gap-4">
         <button
           type="button"
-          onClick={() => setView("calculator")}
+          onClick={() => navigate("calculator")}
           className="group rounded-lg border border-white/10 bg-white p-6 text-left text-zinc-950 shadow-2xl shadow-black/30 transition hover:-translate-y-1"
         >
           <div className="mb-12 flex items-center justify-between">
@@ -174,7 +186,7 @@ function Hub({ setView }) {
 
         <button
           type="button"
-          onClick={() => setView("compatibility")}
+          onClick={() => navigate("compatibility")}
           className="group rounded-lg border border-white/10 bg-zinc-900 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-rose-300/40"
         >
           <div className="mb-12 flex items-center justify-between">
@@ -191,7 +203,7 @@ function Hub({ setView }) {
   );
 }
 
-function FineCalculator({ setView }) {
+function FineCalculator({ navigate }) {
   const [scores, setScores] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [resultLine, setResultLine] = useState("");
@@ -224,7 +236,7 @@ function FineCalculator({ setView }) {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-12">
-      <BackButton onClick={() => setView("hub")} />
+      <BackButton onClick={() => navigate("hub")} />
 
       {!showResults ? (
         <section className="rounded-lg border border-white/10 bg-zinc-950/60 p-5 shadow-2xl shadow-black/30 sm:p-8">
@@ -355,7 +367,7 @@ function OptionButton({ selected, children, onClick }) {
   );
 }
 
-function CompatibilityTest({ setView }) {
+function CompatibilityTest({ navigate }) {
   const [answers, setAnswers] = useState(() =>
     compatibilityQuestions.map(() => ({ you: 1, them: 1 }))
   );
@@ -382,7 +394,7 @@ function CompatibilityTest({ setView }) {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-8 sm:py-12">
-      <BackButton onClick={() => setView("hub")} />
+      <BackButton onClick={() => navigate("hub")} />
 
       <section className="grid gap-8 lg:grid-cols-[0.78fr_1fr]">
         <aside className="top-6 h-fit rounded-lg border border-white/10 bg-zinc-950/70 p-6 lg:sticky">
@@ -461,14 +473,31 @@ function CompatibilityTest({ setView }) {
 }
 
 export default function App() {
-  const [view, setView] = useState("hub");
+  const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setView(getViewFromPath(window.location.pathname));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (nextView) => {
+    const nextPath = routes[nextView] || routes.hub;
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+    setView(nextView);
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 text-white">
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#050505_0%,#09090b_55%,#18181b_100%)]" />
-      {view === "hub" && <Hub setView={setView} />}
-      {view === "calculator" && <FineCalculator setView={setView} />}
-      {view === "compatibility" && <CompatibilityTest setView={setView} />}
+      {view === "hub" && <Hub navigate={navigate} />}
+      {view === "calculator" && <FineCalculator navigate={navigate} />}
+      {view === "compatibility" && <CompatibilityTest navigate={navigate} />}
     </div>
   );
 }
