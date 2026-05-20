@@ -39,6 +39,8 @@ const routes = {
   settings: "/settings",
 };
 
+const ADVANCED_RESULTS_KEY = "fine_test_advanced_results_enabled";
+
 const tierDescriptions = {
   Unicorn: [
     "Unicorn Tier - Marry her immediately.",
@@ -388,6 +390,14 @@ function getCompatibilityTier(percent) {
   return "Not My Type";
 }
 
+function advancedResultsEnabled() {
+  return window.localStorage.getItem(ADVANCED_RESULTS_KEY) === "true";
+}
+
+function getAdvancedResultsValue(settingData) {
+  return settingData?.value?.enabled === true;
+}
+
 function pickResultBand(percent, bands = fallbackResultBands) {
   return (
     bands.find(
@@ -686,6 +696,7 @@ function FineCalculator({ navigate }) {
 function CompatibilityTest({ navigate }) {
   const [questions, setQuestions] = useState([]);
   const [resultBands, setResultBands] = useState(fallbackResultBands);
+  const [useAdvancedResults, setUseAdvancedResults] = useState(false);
   const [answers, setAnswers] = useState({});
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -694,6 +705,7 @@ function CompatibilityTest({ navigate }) {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
+    setUseAdvancedResults(advancedResultsEnabled());
     loadPublicQuestions();
   }, []);
 
@@ -701,7 +713,7 @@ function CompatibilityTest({ navigate }) {
     setLoading(true);
     setError("");
 
-    const [{ data, error: loadError }, { data: bandData }] = await Promise.all([
+    const [{ data, error: loadError }, { data: bandData }, { data: settingData }] = await Promise.all([
       supabase
         .from("compatibility_questions")
         .select(
@@ -714,7 +726,16 @@ function CompatibilityTest({ navigate }) {
         .from("compatibility_result_bands")
         .select("id,min_percent,max_percent,title,message,sort_order")
         .order("sort_order", { ascending: true }),
+      supabase
+        .from("compatibility_settings")
+        .select("value")
+        .eq("key", "advanced_results")
+        .maybeSingle(),
     ]);
+
+    if (settingData) {
+      setUseAdvancedResults(getAdvancedResultsValue(settingData));
+    }
 
     if (loadError) {
       setError("The compatibility test is not set up yet.");
@@ -743,7 +764,9 @@ function CompatibilityTest({ navigate }) {
     }, 0);
 
     const percent = maxScore ? Math.round((score / maxScore) * 100) : 0;
-    const band = pickResultBand(percent, resultBands);
+    const band = useAdvancedResults
+      ? pickResultBand(percent, resultBands)
+      : pickResultBand(percent, fallbackResultBands);
     return {
       score,
       maxScore,
@@ -751,7 +774,7 @@ function CompatibilityTest({ navigate }) {
       tier: band?.title || getCompatibilityTier(percent),
       message: band?.message || "",
     };
-  }, [answers, questions, resultBands]);
+  }, [answers, questions, resultBands, useAdvancedResults]);
 
   const submitTest = async (event) => {
     event.preventDefault();
@@ -1163,6 +1186,10 @@ function AdminPanel({ navigate }) {
   const [password, setPassword] = useState("");
   const [questions, setQuestions] = useState([]);
   const [resultBands, setResultBands] = useState([]);
+  const [savedResultBands, setSavedResultBands] = useState([]);
+  const [advancedResultsOn, setAdvancedResultsOn] = useState(false);
+  const [savedAdvancedResultsOn, setSavedAdvancedResultsOn] = useState(false);
+  const [deletedResultBandIds, setDeletedResultBandIds] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
@@ -1172,6 +1199,7 @@ function AdminPanel({ navigate }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setAdvancedResultsOn(advancedResultsEnabled());
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
@@ -1205,6 +1233,7 @@ function AdminPanel({ navigate }) {
       { data: questionData, error: questionError },
       { data: submissionData, error: submissionError },
       { data: bandData, error: bandError },
+      { data: settingData, error: settingError },
     ] =
       await Promise.all([
         supabase
@@ -1222,14 +1251,20 @@ function AdminPanel({ navigate }) {
           .from("compatibility_result_bands")
           .select("id,min_percent,max_percent,title,message,sort_order")
           .order("sort_order", { ascending: true }),
+        supabase
+          .from("compatibility_settings")
+          .select("value")
+          .eq("key", "advanced_results")
+          .maybeSingle(),
       ]);
 
-    if (questionError || submissionError || bandError) {
+    if (questionError || submissionError || bandError || settingError) {
       setSetupNeeded(true);
       setError(
         questionError?.message ||
           submissionError?.message ||
           bandError?.message ||
+          settingError?.message ||
           "Supabase could not load the admin tables."
       );
       setQuestions([]);
@@ -1240,7 +1275,14 @@ function AdminPanel({ navigate }) {
 
     setQuestions(questionData || []);
     setSubmissions(submissionData || []);
-    setResultBands(bandData?.length ? bandData : fallbackResultBands);
+    const loadedBands = bandData || [];
+    setResultBands(loadedBands);
+    setSavedResultBands(loadedBands);
+    setDeletedResultBandIds([]);
+    const advancedEnabled = getAdvancedResultsValue(settingData);
+    setAdvancedResultsOn(advancedEnabled);
+    setSavedAdvancedResultsOn(advancedEnabled);
+    window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedEnabled));
   };
 
   const login = async (event) => {
@@ -1430,48 +1472,100 @@ function AdminPanel({ navigate }) {
     loadAdminData();
   };
 
-  const updateResultBand = async (id, changes) => {
+  const updateResultBand = (id, changes) => {
     setResultBands((current) =>
       current.map((band) => (band.id === id ? { ...band, ...changes } : band))
     );
-
-    const { error: updateError } = await supabase
-      .from("compatibility_result_bands")
-      .update(changes)
-      .eq("id", id);
-
-    if (updateError) setError(updateError.message);
   };
 
-  const addResultBand = async () => {
-    const { error: insertError } = await supabase.from("compatibility_result_bands").insert({
-      min_percent: 0,
-      max_percent: 100,
-      title: "Custom Result",
-      message: "Write the result text here.",
-      sort_order: resultBands.length + 1,
-    });
-
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
-
-    loadAdminData();
+  const addResultBand = () => {
+    setResultBands((current) => [
+      ...current,
+      {
+        id: `draft-${Date.now()}`,
+        min_percent: 0,
+        max_percent: 100,
+        title: "Custom Result",
+        message: "Write the result text here.",
+        sort_order: current.length + 1,
+      },
+    ]);
   };
 
-  const deleteResultBand = async (id) => {
-    const { error: deleteError } = await supabase
-      .from("compatibility_result_bands")
-      .delete()
-      .eq("id", id);
-
-    if (deleteError) {
-      setError(deleteError.message);
-      return;
+  const deleteResultBand = (id) => {
+    if (!String(id).startsWith("draft-")) {
+      setDeletedResultBandIds((current) => [...new Set([...current, id])]);
     }
 
     setResultBands((current) => current.filter((band) => band.id !== id));
+  };
+
+  const discardAdvancedSettings = () => {
+    setResultBands(savedResultBands);
+    setAdvancedResultsOn(savedAdvancedResultsOn);
+    setDeletedResultBandIds([]);
+    setError("");
+    setMessage("Advanced settings discarded.");
+  };
+
+  const saveAdvancedSettings = async () => {
+    setError("");
+    setMessage("");
+
+    const { error: settingError } = await supabase.from("compatibility_settings").upsert({
+      key: "advanced_results",
+      value: { enabled: advancedResultsOn },
+      updated_at: new Date().toISOString(),
+    });
+
+    if (settingError) {
+      setError(settingError.message);
+      return;
+    }
+
+    const deleteIds = deletedResultBandIds.filter((id) => !String(id).startsWith("draft-"));
+    if (deleteIds.length) {
+      const { error: deleteError } = await supabase
+        .from("compatibility_result_bands")
+        .delete()
+        .in("id", deleteIds);
+
+      if (deleteError) {
+        setError(deleteError.message);
+        return;
+      }
+    }
+
+    const existingBands = resultBands.filter((band) => !String(band.id).startsWith("draft-"));
+    const draftBands = resultBands.filter((band) => String(band.id).startsWith("draft-"));
+
+    for (const band of existingBands) {
+      const { id, ...changes } = band;
+      const { error: updateError } = await supabase
+        .from("compatibility_result_bands")
+        .update(changes)
+        .eq("id", id);
+
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+    }
+
+    if (draftBands.length) {
+      const { error: insertError } = await supabase.from("compatibility_result_bands").insert(
+        draftBands.map(({ id, ...band }) => band)
+      );
+
+      if (insertError) {
+        setError(insertError.message);
+        return;
+      }
+    }
+
+    window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedResultsOn));
+    setMessage("Advanced settings saved.");
+    loadAdminData();
   };
 
   const deleteSubmission = async (id) => {
@@ -1516,8 +1610,7 @@ function AdminPanel({ navigate }) {
       </div>
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
-        <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">Admin</p>
-        <h1 className="mt-4 text-4xl font-black text-white">Compatibility Control</h1>
+        <h1 className="text-4xl font-black text-white">Make your compatibility quiz</h1>
 
         <div className="mt-6 flex flex-wrap gap-2">
           <button
@@ -1836,17 +1929,57 @@ function AdminPanel({ navigate }) {
         {!setupNeeded && tab === "advanced" && (
           <div className="mt-8 grid gap-5">
             <div className="rounded-lg border border-white/10 bg-white/5 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
-                Result Text
-              </p>
-              <h2 className="mt-3 text-2xl font-black text-white">Compatibility result bands</h2>
-              <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
-                Set the percentage ranges and the custom text people see after finishing the test.
-                Example: 80 to 100 can say whatever you want high matches to see.
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+                    Result Text
+                  </p>
+                  <h2 className="mt-3 text-2xl font-black text-white">
+                    Custom result margins
+                  </h2>
+                  <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+                    Turn this on when you want your own result messages. When it is off, the test
+                    uses the default result text below, but your custom margins stay saved.
+                  </p>
+                </div>
+                <label className="flex items-center gap-3 text-sm font-black text-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedResultsOn((current) => !current)}
+                    className={`relative h-8 w-16 rounded-full transition ${
+                      advancedResultsOn ? "bg-emerald-400" : "bg-red-500"
+                    }`}
+                    aria-label="Toggle custom result margins"
+                  >
+                    <span
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
+                        advancedResultsOn ? "left-9" : "left-1"
+                      }`}
+                    />
+                  </button>
+                  {advancedResultsOn ? "Enabled" : "Disabled"}
+                </label>
+              </div>
+              {!advancedResultsOn && (
+                <div className="mt-5 rounded-md border border-white/10 bg-zinc-950/70 p-4 opacity-60">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Default result text
+                  </p>
+                  <div className="mt-3 grid gap-2 text-sm text-zinc-300">
+                    {fallbackResultBands.map((band) => (
+                      <p key={band.id}>
+                        <span className="font-black text-white">
+                          {band.min_percent}-{band.max_percent}%: {band.title}
+                        </span>{" "}
+                        {band.message}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="grid gap-4">
+            <div className={`grid gap-4 ${advancedResultsOn ? "" : "pointer-events-none opacity-45"}`}>
               {resultBands.map((band) => (
                 <article key={band.id} className="rounded-lg border border-white/10 p-4">
                   <div className="grid gap-3 md:grid-cols-[100px_100px_1fr_90px]">
@@ -1926,19 +2059,36 @@ function AdminPanel({ navigate }) {
                     onClick={() => deleteResultBand(band.id)}
                     className="mt-3 rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
                   >
-                    Delete Band
+                    Delete Margin
                   </button>
                 </article>
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={addResultBand}
-              className="w-fit rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
-            >
-              Add Result Band
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={addResultBand}
+                disabled={!advancedResultsOn}
+                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Add Result Margin
+              </button>
+              <button
+                type="button"
+                onClick={saveAdvancedSettings}
+                className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
+              >
+                Save Changes
+              </button>
+              <button
+                type="button"
+                onClick={discardAdvancedSettings}
+                className="rounded-md border border-white/10 px-5 py-3 font-black text-white transition hover:border-white/30"
+              >
+                Discard Changes
+              </button>
+            </div>
           </div>
         )}
       </section>

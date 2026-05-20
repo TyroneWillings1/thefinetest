@@ -59,11 +59,19 @@ create table if not exists public.compatibility_result_bands (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.compatibility_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.compatibility_questions enable row level security;
 alter table public.compatibility_options enable row level security;
 alter table public.compatibility_submissions enable row level security;
 alter table public.compatibility_answers enable row level security;
 alter table public.compatibility_result_bands enable row level security;
+alter table public.compatibility_settings enable row level security;
 
 drop policy if exists "Public can read active questions" on public.compatibility_questions;
 create policy "Public can read active questions"
@@ -152,6 +160,21 @@ to authenticated
 using (true)
 with check (true);
 
+drop policy if exists "Public can read compatibility settings" on public.compatibility_settings;
+create policy "Public can read compatibility settings"
+on public.compatibility_settings
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Admins can manage compatibility settings" on public.compatibility_settings;
+create policy "Admins can manage compatibility settings"
+on public.compatibility_settings
+for all
+to authenticated
+using (true)
+with check (true);
+
 insert into public.compatibility_result_bands (min_percent, max_percent, title, message, sort_order)
 select *
 from (
@@ -163,5 +186,8 @@ from (
 ) as band(min_percent, max_percent, title, message, sort_order)
 where not exists (select 1 from public.compatibility_result_bands);
 
--- Random question templates now live in the app and are only added when you click random-question controls.
+insert into public.compatibility_settings (key, value)
+values ('advanced_results', '{"enabled": false}'::jsonb)
+on conflict (key) do nothing;
 
+-- Random question templates now live in the app and are only added when you click random-question controls.
