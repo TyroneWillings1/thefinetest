@@ -1,3 +1,8 @@
+-- PAUSE BEFORE RUNNING THIS FILE.
+-- The compatibility test is being revised to support account-owned tests and
+-- owner-specific results. If you have not run this SQL yet, wait for the next
+-- version so we do not create the older global-table setup first.
+
 create table if not exists public.compatibility_questions (
   id uuid primary key default gen_random_uuid(),
   prompt text not null,

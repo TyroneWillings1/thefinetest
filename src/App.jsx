@@ -116,16 +116,11 @@ function BackButton({ onClick }) {
 }
 
 function Hub({ navigate }) {
-  const openLogin = async () => {
-    const { data } = await supabase.auth.getSession();
-    navigate(data.session ? "admin" : "login");
-  };
-
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-12">
       <button
         type="button"
-        onClick={openLogin}
+        onClick={() => navigate("login")}
         aria-label="Login"
         className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-rose-100"
       />
@@ -543,7 +538,7 @@ function LoginPage({ navigate }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        navigate("admin", true);
+        navigate("hub", true);
       }
       setLoading(false);
     });
@@ -562,7 +557,7 @@ function LoginPage({ navigate }) {
             email,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/admin`,
+              emailRedirectTo: `${window.location.origin}/`,
             },
           });
 
@@ -571,7 +566,7 @@ function LoginPage({ navigate }) {
     } else if (mode === "signup") {
       setMessage("Account created. Check your email if Supabase asks for confirmation.");
     } else {
-      navigate("admin", true);
+      navigate("hub", true);
     }
 
     setBusy(false);
@@ -585,7 +580,7 @@ function LoginPage({ navigate }) {
     const { error: socialError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/admin`,
+        redirectTo: `${window.location.origin}/`,
       },
     });
 
