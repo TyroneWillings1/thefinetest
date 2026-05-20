@@ -46,6 +46,8 @@ const DEFAULT_QUIZ_DETAILS = {
   description: "",
 };
 
+const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
+
 const tierDescriptions = {
   Unicorn: [
     "Unicorn Tier - Marry her immediately.",
@@ -368,6 +370,7 @@ const fallbackResultBands = [
 ];
 
 function getViewFromPath(pathname) {
+  if (getSharedTestUsername(pathname)) return "compatibility";
   if (pathname === routes.dashboard) return "dashboard";
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
@@ -375,6 +378,11 @@ function getViewFromPath(pathname) {
   if (pathname === routes.admin) return "admin";
   if (pathname === routes.settings) return "settings";
   return "landing";
+}
+
+function getSharedTestUsername(pathname) {
+  const match = pathname.match(/^\/@([a-z0-9_]{3,24})\/test\/?$/i);
+  return match?.[1]?.toLowerCase() || "";
 }
 
 function getFineTier(score, hasWildcard) {
@@ -412,6 +420,56 @@ function getQuizDetailsValue(settingData) {
 
 function settingsByKey(settings = []) {
   return settings.reduce((all, item) => ({ ...all, [item.key]: item }), {});
+}
+
+function normalizeUsername(value = "") {
+  return value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+}
+
+function usernameFromUser(user) {
+  const source =
+    user?.user_metadata?.user_name ||
+    user?.user_metadata?.preferred_username ||
+    user?.email?.split("@")[0] ||
+    "user";
+  const base = normalizeUsername(source) || "user";
+  return base.length >= 3 ? base : `${base}123`;
+}
+
+async function ensureUserProfile(user) {
+  if (!user) return null;
+
+  const { data: existing, error: existingError } = await supabase
+    .from("compatibility_profiles")
+    .select("user_id,username,display_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing) return existing;
+  if (existingError) return null;
+
+  const base = usernameFromUser(user);
+  const candidates = [
+    base,
+    `${base}_${String(user.id).slice(0, 4)}`,
+    `${base}_${Math.floor(1000 + Math.random() * 9000)}`,
+  ];
+
+  for (const username of candidates) {
+    const { data, error } = await supabase
+      .from("compatibility_profiles")
+      .insert({
+        user_id: user.id,
+        username,
+        display_name: user.email || "",
+      })
+      .select("user_id,username,display_name")
+      .single();
+
+    if (!error) return data;
+  }
+
+  return null;
 }
 
 function pickResultBand(percent, bands = fallbackResultBands) {
@@ -718,7 +776,7 @@ function FineCalculator({ navigate }) {
   );
 }
 
-function CompatibilityTest({ navigate }) {
+function CompatibilityTest({ navigate, sharedUsername = "" }) {
   const [questions, setQuestions] = useState([]);
   const [resultBands, setResultBands] = useState(fallbackResultBands);
   const [useAdvancedResults, setUseAdvancedResults] = useState(false);
@@ -742,7 +800,12 @@ function CompatibilityTest({ navigate }) {
     setLoading(true);
     setError("");
 
-    const [{ data, error: loadError }, { data: bandData }, { data: settingsData }] = await Promise.all([
+    const [
+      { data, error: loadError },
+      { data: bandData },
+      { data: settingsData },
+      { data: profileData, error: profileError },
+    ] = await Promise.all([
       supabase
         .from("compatibility_questions")
         .select(
@@ -759,7 +822,21 @@ function CompatibilityTest({ navigate }) {
         .from("compatibility_settings")
         .select("key,value")
         .in("key", ["advanced_results", "quiz_details"]),
+      sharedUsername
+        ? supabase
+            .from("compatibility_profiles")
+            .select("username")
+            .eq("username", sharedUsername)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
+
+    if (sharedUsername && !profileData && !profileError) {
+      setError("This test link does not exist yet.");
+      setQuestions([]);
+      setLoading(false);
+      return;
+    }
 
     if (settingsData) {
       const loadedSettings = settingsByKey(settingsData);
@@ -1194,21 +1271,64 @@ function LoginPage({ navigate, isLanding = false }) {
 
 function SettingsPage({ navigate }) {
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
-      setLoading(false);
       if (!data.session) {
         navigate("login", true);
+      } else {
+        const loadedProfile = await ensureUserProfile(data.session.user);
+        setProfile(loadedProfile);
+        setUsername(loadedProfile?.username || "");
       }
+      setLoading(false);
     });
   }, [navigate]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate("landing", true);
+  };
+
+  const saveUsername = async () => {
+    setError("");
+    setMessage("");
+
+    const nextUsername = normalizeUsername(username);
+    if (!USERNAME_PATTERN.test(nextUsername)) {
+      setError("Use 3-24 characters: lowercase letters, numbers, and underscores only.");
+      return;
+    }
+
+    const { data, error: updateError } = await supabase
+      .from("compatibility_profiles")
+      .upsert({
+        user_id: session.user.id,
+        username: nextUsername,
+        display_name: session.user.email || "",
+        updated_at: new Date().toISOString(),
+      })
+      .select("user_id,username,display_name")
+      .single();
+
+    if (updateError) {
+      setError(
+        updateError.code === "23505"
+          ? "That username is already taken."
+          : updateError.message
+      );
+      return;
+    }
+
+    setProfile(data);
+    setUsername(data.username);
+    setMessage("Username saved.");
   };
 
   if (loading) {
@@ -1231,6 +1351,35 @@ function SettingsPage({ navigate }) {
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-zinc-400">Signed in as</p>
             <p className="mt-2 font-bold text-white">{session.user.email || "Connected account"}</p>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h2 className="text-xl font-black text-white">Username</h2>
+            <p className="mt-2 leading-7 text-zinc-300">
+              Your public test link will use this username.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <label>
+                <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  thefinetest.com/@{username || "username"}/test
+                </span>
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(normalizeUsername(event.target.value))}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                  placeholder="username"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={saveUsername}
+                className="self-end rounded-md bg-cyan-300 px-5 py-2 font-black text-zinc-950 transition hover:bg-white"
+              >
+                Save
+              </button>
+            </div>
+            {message && <p className="mt-3 text-sm font-bold text-emerald-300">{message}</p>}
+            {error && <p className="mt-3 text-sm font-bold text-cyan-200">{error}</p>}
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
@@ -1280,6 +1429,7 @@ function AdminPanel({ navigate }) {
   const [deletedResultBandIds, setDeletedResultBandIds] = useState([]);
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [savedQuizDetails, setSavedQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
+  const [profile, setProfile] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
@@ -1376,6 +1526,9 @@ function AdminPanel({ navigate }) {
     setQuizDetails(loadedQuizDetails);
     setSavedQuizDetails(loadedQuizDetails);
     window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedEnabled));
+
+    const loadedProfile = await ensureUserProfile(session.user);
+    setProfile(loadedProfile);
   };
 
   const login = async (event) => {
@@ -1544,7 +1697,10 @@ function AdminPanel({ navigate }) {
   };
 
   const copyShareLink = async () => {
-    const link = `${window.location.origin}${routes.compatibility}`;
+    const username = profile?.username;
+    const link = username
+      ? `${window.location.origin}/@${username}/test`
+      : `${window.location.origin}${routes.compatibility}`;
     await navigator.clipboard.writeText(link);
     setMessage("Share link copied.");
   };
@@ -2325,10 +2481,14 @@ function SiteFooter() {
 
 export default function App() {
   const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
+  const [sharedUsername, setSharedUsername] = useState(() =>
+    getSharedTestUsername(window.location.pathname)
+  );
 
   useEffect(() => {
     const handlePopState = () => {
       setView(getViewFromPath(window.location.pathname));
+      setSharedUsername(getSharedTestUsername(window.location.pathname));
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -2344,6 +2504,7 @@ export default function App() {
         window.history.pushState({}, "", nextPath);
       }
     }
+    setSharedUsername("");
     setView(nextView);
   };
 
@@ -2353,7 +2514,9 @@ export default function App() {
       {view === "landing" && <Hub navigate={navigate} />}
       {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
-      {view === "compatibility" && <CompatibilityTest navigate={navigate} />}
+      {view === "compatibility" && (
+        <CompatibilityTest navigate={navigate} sharedUsername={sharedUsername} />
+      )}
       {view === "login" && <LoginPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} />}
       {view === "settings" && <SettingsPage navigate={navigate} />}

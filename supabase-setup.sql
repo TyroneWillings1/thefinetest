@@ -66,12 +66,21 @@ create table if not exists public.compatibility_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.compatibility_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  username text unique not null,
+  display_name text default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.compatibility_questions enable row level security;
 alter table public.compatibility_options enable row level security;
 alter table public.compatibility_submissions enable row level security;
 alter table public.compatibility_answers enable row level security;
 alter table public.compatibility_result_bands enable row level security;
 alter table public.compatibility_settings enable row level security;
+alter table public.compatibility_profiles enable row level security;
 
 drop policy if exists "Public can read active questions" on public.compatibility_questions;
 create policy "Public can read active questions"
@@ -174,6 +183,28 @@ for all
 to authenticated
 using (true)
 with check (true);
+
+drop policy if exists "Public can read compatibility profiles" on public.compatibility_profiles;
+create policy "Public can read compatibility profiles"
+on public.compatibility_profiles
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Users can create their own compatibility profile" on public.compatibility_profiles;
+create policy "Users can create their own compatibility profile"
+on public.compatibility_profiles
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own compatibility profile" on public.compatibility_profiles;
+create policy "Users can update their own compatibility profile"
+on public.compatibility_profiles
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 insert into public.compatibility_result_bands (min_percent, max_percent, title, message, sort_order)
 select *
