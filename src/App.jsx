@@ -600,6 +600,16 @@ function AccountDrawer({ onClose, navigate }) {
 
 function Hub({ navigate }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        navigate("login", true);
+      }
+      setCheckingSession(false);
+    });
+  }, [navigate]);
 
   const openAccount = async () => {
     const { data } = await supabase.auth.getSession();
@@ -609,6 +619,10 @@ function Hub({ navigate }) {
       navigate("login");
     }
   };
+
+  if (checkingSession) {
+    return <main className="mx-auto w-full max-w-xl px-5 py-12 text-zinc-300">Loading...</main>;
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-12">
@@ -2816,7 +2830,7 @@ export default function App() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 text-white">
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#050505_0%,#09090b_55%,#18181b_100%)]" />
-      {view === "landing" && <Hub navigate={navigate} />}
+      {view === "landing" && <LoginPage navigate={navigate} isLanding />}
       {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "compatibility" && (
