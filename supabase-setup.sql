@@ -190,4 +190,8 @@ insert into public.compatibility_settings (key, value)
 values ('advanced_results', '{"enabled": false}'::jsonb)
 on conflict (key) do nothing;
 
+insert into public.compatibility_settings (key, value)
+values ('quiz_details', '{"title": "Compatibility Test", "description": ""}'::jsonb)
+on conflict (key) do nothing;
+
 -- Random question templates now live in the app and are only added when you click random-question controls.

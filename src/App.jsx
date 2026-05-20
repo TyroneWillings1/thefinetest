@@ -41,6 +41,11 @@ const routes = {
 
 const ADVANCED_RESULTS_KEY = "fine_test_advanced_results_enabled";
 
+const DEFAULT_QUIZ_DETAILS = {
+  title: "Compatibility Test",
+  description: "",
+};
+
 const tierDescriptions = {
   Unicorn: [
     "Unicorn Tier - Marry her immediately.",
@@ -398,6 +403,17 @@ function getAdvancedResultsValue(settingData) {
   return settingData?.value?.enabled === true;
 }
 
+function getQuizDetailsValue(settingData) {
+  return {
+    title: settingData?.value?.title || DEFAULT_QUIZ_DETAILS.title,
+    description: settingData?.value?.description || DEFAULT_QUIZ_DETAILS.description,
+  };
+}
+
+function settingsByKey(settings = []) {
+  return settings.reduce((all, item) => ({ ...all, [item.key]: item }), {});
+}
+
 function pickResultBand(percent, bands = fallbackResultBands) {
   return (
     bands.find(
@@ -504,22 +520,12 @@ function Hub({ navigate }) {
         className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-cyan-100"
       />
 
-      <p className="mb-5 text-sm font-black uppercase tracking-[0.32em] text-cyan-300">
-        Choose your test
-      </p>
-
       <section className="grid gap-4">
         <button
           type="button"
           onClick={() => navigate("calculator")}
           className="group rounded-lg border border-white/10 bg-white p-6 text-left text-zinc-950 shadow-2xl shadow-black/30 transition hover:-translate-y-1"
         >
-          <div className="mb-12 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.3em] text-cyan-600">
-              Original
-            </span>
-            <span className="text-2xl font-black transition group-hover:translate-x-1">Go</span>
-          </div>
           <h1 className="text-3xl font-black">FINE Calculator</h1>
           <p className="mt-3 text-zinc-600">Rate the traits and reveal the tier.</p>
         </button>
@@ -529,14 +535,10 @@ function Hub({ navigate }) {
           onClick={() => navigate("compatibility")}
           className="group rounded-lg border border-white/10 bg-zinc-900 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-300/40"
         >
-          <div className="mb-12 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
-              New
-            </span>
-            <span className="text-2xl font-black transition group-hover:translate-x-1">Go</span>
-          </div>
           <h2 className="text-3xl font-black">Compatibility Test</h2>
-          <p className="mt-3 text-zinc-300">Take Tyrone's compatibility test.</p>
+          <p className="mt-3 text-zinc-300">
+            Test to see how compatible you are with anyone.
+          </p>
         </button>
       </section>
 
@@ -697,6 +699,7 @@ function CompatibilityTest({ navigate }) {
   const [questions, setQuestions] = useState([]);
   const [resultBands, setResultBands] = useState(fallbackResultBands);
   const [useAdvancedResults, setUseAdvancedResults] = useState(false);
+  const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [answers, setAnswers] = useState({});
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -713,7 +716,7 @@ function CompatibilityTest({ navigate }) {
     setLoading(true);
     setError("");
 
-    const [{ data, error: loadError }, { data: bandData }, { data: settingData }] = await Promise.all([
+    const [{ data, error: loadError }, { data: bandData }, { data: settingsData }] = await Promise.all([
       supabase
         .from("compatibility_questions")
         .select(
@@ -728,13 +731,14 @@ function CompatibilityTest({ navigate }) {
         .order("sort_order", { ascending: true }),
       supabase
         .from("compatibility_settings")
-        .select("value")
-        .eq("key", "advanced_results")
-        .maybeSingle(),
+        .select("key,value")
+        .in("key", ["advanced_results", "quiz_details"]),
     ]);
 
-    if (settingData) {
-      setUseAdvancedResults(getAdvancedResultsValue(settingData));
+    if (settingsData) {
+      const loadedSettings = settingsByKey(settingsData);
+      setUseAdvancedResults(getAdvancedResultsValue(loadedSettings.advanced_results));
+      setQuizDetails(getQuizDetailsValue(loadedSettings.quiz_details));
     }
 
     if (loadError) {
@@ -839,10 +843,10 @@ function CompatibilityTest({ navigate }) {
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
           Compatibility
         </p>
-        <h1 className="mt-4 text-4xl font-black text-white">Tyrone's Test</h1>
-        <p className="mt-4 leading-7 text-zinc-300">
-          Answer the questions honestly. Your result gets saved privately for review.
-        </p>
+        <h1 className="mt-4 text-4xl font-black text-white">{quizDetails.title}</h1>
+        {quizDetails.description && (
+          <p className="mt-4 leading-7 text-zinc-300">{quizDetails.description}</p>
+        )}
 
         {loading && <p className="mt-8 text-zinc-300">Loading questions...</p>}
 
@@ -919,7 +923,7 @@ function CompatibilityTest({ navigate }) {
             <p className="mt-4 text-2xl font-black text-cyan-600">{result.tier}</p>
             {result.message && <p className="mt-3 leading-6 text-zinc-600">{result.message}</p>}
             <p className="mt-3 text-zinc-600">
-              Your answers were saved. Tyrone can review the full submission.
+              Your answers were saved for review.
             </p>
           </div>
         )}
@@ -1190,6 +1194,8 @@ function AdminPanel({ navigate }) {
   const [advancedResultsOn, setAdvancedResultsOn] = useState(false);
   const [savedAdvancedResultsOn, setSavedAdvancedResultsOn] = useState(false);
   const [deletedResultBandIds, setDeletedResultBandIds] = useState([]);
+  const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
+  const [savedQuizDetails, setSavedQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
@@ -1253,9 +1259,8 @@ function AdminPanel({ navigate }) {
           .order("sort_order", { ascending: true }),
         supabase
           .from("compatibility_settings")
-          .select("value")
-          .eq("key", "advanced_results")
-          .maybeSingle(),
+          .select("key,value")
+          .in("key", ["advanced_results", "quiz_details"]),
       ]);
 
     if (questionError || submissionError || bandError || settingError) {
@@ -1279,9 +1284,13 @@ function AdminPanel({ navigate }) {
     setResultBands(loadedBands);
     setSavedResultBands(loadedBands);
     setDeletedResultBandIds([]);
-    const advancedEnabled = getAdvancedResultsValue(settingData);
+    const loadedSettings = settingsByKey(settingData || []);
+    const advancedEnabled = getAdvancedResultsValue(loadedSettings.advanced_results);
+    const loadedQuizDetails = getQuizDetailsValue(loadedSettings.quiz_details);
     setAdvancedResultsOn(advancedEnabled);
     setSavedAdvancedResultsOn(advancedEnabled);
+    setQuizDetails(loadedQuizDetails);
+    setSavedQuizDetails(loadedQuizDetails);
     window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedEnabled));
   };
 
@@ -1417,6 +1426,37 @@ function AdminPanel({ navigate }) {
     setQuestions([]);
     setConfirmClearQuestions(false);
     setMessage("All questions cleared.");
+  };
+
+  const saveQuizDetails = async () => {
+    setError("");
+    setMessage("");
+
+    const cleanedDetails = {
+      title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
+      description: quizDetails.description.trim(),
+    };
+
+    const { error: saveError } = await supabase.from("compatibility_settings").upsert({
+      key: "quiz_details",
+      value: cleanedDetails,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (saveError) {
+      setError(saveError.message);
+      return;
+    }
+
+    setQuizDetails(cleanedDetails);
+    setSavedQuizDetails(cleanedDetails);
+    setMessage("Quiz details saved.");
+  };
+
+  const discardQuizDetails = () => {
+    setQuizDetails(savedQuizDetails);
+    setError("");
+    setMessage("Quiz details discarded.");
   };
 
   const updateOption = async (questionId, optionId, changes) => {
@@ -1675,6 +1715,56 @@ function AdminPanel({ navigate }) {
 
         {!setupNeeded && tab === "questions" && (
           <div className="mt-8">
+            <div className="mb-6 rounded-lg border border-white/10 bg-white/5 p-4">
+              <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Test name
+                  </span>
+                  <input
+                    value={quizDetails.title}
+                    onChange={(event) =>
+                      setQuizDetails((current) => ({ ...current, title: event.target.value }))
+                    }
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    placeholder="Compatibility Test"
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Test description
+                  </span>
+                  <input
+                    value={quizDetails.description}
+                    onChange={(event) =>
+                      setQuizDetails((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    placeholder=""
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={saveQuizDetails}
+                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
+                >
+                  Save Test Details
+                </button>
+                <button
+                  type="button"
+                  onClick={discardQuizDetails}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-white transition hover:border-white/30"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
