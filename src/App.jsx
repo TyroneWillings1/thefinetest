@@ -1446,6 +1446,7 @@ function TestManager({ navigate }) {
   const [session, setSession] = useState(null);
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [questionCount, setQuestionCount] = useState(0);
+  const [submissions, setSubmissions] = useState([]);
   const [mode, setMode] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1470,6 +1471,7 @@ function TestManager({ navigate }) {
     const [
       { data: settingData, error: settingError },
       { count, error: countError },
+      { data: submissionData, error: submissionError },
     ] = await Promise.all([
       supabase
         .from("compatibility_settings")
@@ -1479,13 +1481,23 @@ function TestManager({ navigate }) {
       supabase
         .from("compatibility_questions")
         .select("id", { count: "exact", head: true }),
+      supabase
+        .from("compatibility_submissions")
+        .select("id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
+        .order("created_at", { ascending: false }),
     ]);
 
-    if (settingError || countError) {
-      setError(settingError?.message || countError?.message || "Could not load tests.");
+    if (settingError || countError || submissionError) {
+      setError(
+        settingError?.message ||
+          countError?.message ||
+          submissionError?.message ||
+          "Could not load tests."
+      );
     } else {
       setQuizDetails(getQuizDetailsValue(settingData));
       setQuestionCount(count || 0);
+      setSubmissions(submissionData || []);
     }
 
     setLoading(false);
@@ -1579,7 +1591,7 @@ function TestManager({ navigate }) {
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-6">
         <h1 className="text-3xl font-black text-white">Compatibility Tests</h1>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setMode("list")}
@@ -1587,6 +1599,14 @@ function TestManager({ navigate }) {
           >
             <span className="block text-xl font-black text-white">Edit Existing Test</span>
             <span className="mt-1 block text-sm text-zinc-400">Open your saved tests</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("results")}
+            className="rounded-lg border border-white/10 bg-white/5 p-4 text-left transition hover:border-cyan-300/40 hover:bg-white/10"
+          >
+            <span className="block text-xl font-black text-white">Test Results</span>
+            <span className="mt-1 block text-sm text-zinc-400">Review submissions</span>
           </button>
           <button
             type="button"
@@ -1668,6 +1688,59 @@ function TestManager({ navigate }) {
                 </div>
               )}
             </article>
+          </div>
+        )}
+
+        {mode === "results" && (
+          <div className="mt-6 grid gap-4">
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
+                Test Results
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white">{quizDetails.title}</h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                {submissions.length} saved {submissions.length === 1 ? "submission" : "submissions"}
+              </p>
+            </div>
+
+            {submissions.length === 0 && (
+              <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-zinc-300">
+                No results yet.
+              </p>
+            )}
+
+            {submissions.map((submission) => (
+              <article key={submission.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-black text-white">
+                      {submission.name || "Anonymous"}
+                    </h3>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      {new Date(submission.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-white p-4 text-center text-zinc-950">
+                    <p className="text-3xl font-black">{submission.percent}%</p>
+                    <p className="text-sm font-black text-cyan-600">{submission.result_tier}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2">
+                  {(submission.compatibility_answers || []).map((answer) => (
+                    <div
+                      key={`${submission.id}-${answer.question_prompt}`}
+                      className="rounded-md bg-zinc-950/70 p-3"
+                    >
+                      <p className="font-bold text-zinc-200">{answer.question_prompt}</p>
+                      <p className="mt-1 text-sm text-zinc-400">
+                        {answer.option_label} ({answer.points} pts)
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </section>
