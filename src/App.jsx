@@ -44,9 +44,11 @@ const ADVANCED_RESULTS_KEY = "fine_test_advanced_results_enabled";
 const DEFAULT_QUIZ_DETAILS = {
   title: "Compatibility Test",
   description: "",
+  public_id: "",
 };
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
+const TEST_ID_PATTERN = /^[a-z0-9]{6,12}$/;
 
 const tierDescriptions = {
   Unicorn: [
@@ -370,7 +372,7 @@ const fallbackResultBands = [
 ];
 
 function getViewFromPath(pathname) {
-  if (getSharedTestUsername(pathname)) return "compatibility";
+  if (getSharedTestRoute(pathname).testId) return "compatibility";
   if (pathname === routes.dashboard) return "dashboard";
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
@@ -380,9 +382,11 @@ function getViewFromPath(pathname) {
   return "landing";
 }
 
-function getSharedTestUsername(pathname) {
-  const match = pathname.match(/^\/@([a-z0-9_]{3,24})\/test\/?$/i);
-  return match?.[1]?.toLowerCase() || "";
+function getSharedTestRoute(pathname) {
+  const match = pathname.match(/^\/t\/([a-z0-9]{6,12})\/?$/i);
+  return {
+    testId: match?.[1]?.toLowerCase() || "",
+  };
 }
 
 function getFineTier(score, hasWildcard) {
@@ -415,6 +419,7 @@ function getQuizDetailsValue(settingData) {
   return {
     title: settingData?.value?.title || DEFAULT_QUIZ_DETAILS.title,
     description: settingData?.value?.description || DEFAULT_QUIZ_DETAILS.description,
+    public_id: settingData?.value?.public_id || DEFAULT_QUIZ_DETAILS.public_id,
   };
 }
 
@@ -424,6 +429,10 @@ function settingsByKey(settings = []) {
 
 function normalizeUsername(value = "") {
   return value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+}
+
+function createTestId() {
+  return Math.random().toString(36).replace(/[^a-z0-9]/g, "").slice(2, 8);
 }
 
 function usernameFromUser(user) {
@@ -776,7 +785,7 @@ function FineCalculator({ navigate }) {
   );
 }
 
-function CompatibilityTest({ navigate, sharedUsername = "" }) {
+function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
   const [questions, setQuestions] = useState([]);
   const [resultBands, setResultBands] = useState(fallbackResultBands);
   const [useAdvancedResults, setUseAdvancedResults] = useState(false);
@@ -804,7 +813,6 @@ function CompatibilityTest({ navigate, sharedUsername = "" }) {
       { data, error: loadError },
       { data: bandData },
       { data: settingsData },
-      { data: profileData, error: profileError },
     ] = await Promise.all([
       supabase
         .from("compatibility_questions")
@@ -822,16 +830,11 @@ function CompatibilityTest({ navigate, sharedUsername = "" }) {
         .from("compatibility_settings")
         .select("key,value")
         .in("key", ["advanced_results", "quiz_details"]),
-      sharedUsername
-        ? supabase
-            .from("compatibility_profiles")
-            .select("username")
-            .eq("username", sharedUsername)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (sharedUsername && !profileData && !profileError) {
+    const loadedSettings = settingsByKey(settingsData || []);
+    const loadedQuizDetails = getQuizDetailsValue(loadedSettings.quiz_details);
+    if (sharedTest.testId && sharedTest.testId !== loadedQuizDetails.public_id) {
       setError("This test link does not exist yet.");
       setQuestions([]);
       setLoading(false);
@@ -839,9 +842,8 @@ function CompatibilityTest({ navigate, sharedUsername = "" }) {
     }
 
     if (settingsData) {
-      const loadedSettings = settingsByKey(settingsData);
       setUseAdvancedResults(getAdvancedResultsValue(loadedSettings.advanced_results));
-      setQuizDetails(getQuizDetailsValue(loadedSettings.quiz_details));
+      setQuizDetails(loadedQuizDetails);
     }
 
     if (loadError) {
@@ -1669,9 +1671,13 @@ function AdminPanel({ navigate }) {
     setError("");
     setMessage("");
 
+    const nextTestId = TEST_ID_PATTERN.test(quizDetails.public_id)
+      ? quizDetails.public_id
+      : createTestId();
     const cleanedDetails = {
       title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
       description: quizDetails.description.trim(),
+      public_id: nextTestId,
     };
 
     const { error: saveError } = await supabase.from("compatibility_settings").upsert({
@@ -1697,10 +1703,30 @@ function AdminPanel({ navigate }) {
   };
 
   const copyShareLink = async () => {
-    const username = profile?.username;
-    const link = username
-      ? `${window.location.origin}/@${username}/test`
-      : `${window.location.origin}${routes.compatibility}`;
+    let details = quizDetails;
+    if (!TEST_ID_PATTERN.test(details.public_id)) {
+      const nextTestId = createTestId();
+      details = { ...details, public_id: nextTestId };
+      const { error: saveError } = await supabase.from("compatibility_settings").upsert({
+        key: "quiz_details",
+        value: {
+          title: details.title.trim() || DEFAULT_QUIZ_DETAILS.title,
+          description: details.description.trim(),
+          public_id: nextTestId,
+        },
+        updated_at: new Date().toISOString(),
+      });
+
+      if (saveError) {
+        setError(saveError.message);
+        return;
+      }
+
+      setQuizDetails(details);
+      setSavedQuizDetails(details);
+    }
+
+    const link = `${window.location.origin}/t/${details.public_id}`;
     await navigator.clipboard.writeText(link);
     setMessage("Share link copied.");
   };
@@ -1985,9 +2011,9 @@ function AdminPanel({ navigate }) {
         )}
 
         {!setupNeeded && tab === "questions" && (
-          <div className="mt-8">
-            <div className="mb-6 rounded-lg border border-white/10 bg-white/5 p-4">
-              <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
+          <div className="mt-6">
+            <div className="mb-5 rounded-lg border border-white/10 bg-white/5 p-3 sm:p-4">
+              <div className="grid gap-3 md:grid-cols-[1fr_1.25fr_170px]">
                 <label>
                   <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
                     Test name
@@ -2015,6 +2041,16 @@ function AdminPanel({ navigate }) {
                     }
                     className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
                     placeholder=""
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Share id
+                  </span>
+                  <input
+                    value={quizDetails.public_id || "created on save"}
+                    readOnly
+                    className="w-full rounded-md border border-white/10 bg-zinc-950/70 px-3 py-2 text-zinc-400"
                   />
                 </label>
               </div>
@@ -2171,39 +2207,39 @@ function AdminPanel({ navigate }) {
               ))}
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="mt-5 grid gap-2 rounded-lg border border-white/10 bg-white/5 p-3 sm:flex sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => addQuestion()}
-                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
+                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
               >
                 Add Question
               </button>
               <button
                 type="button"
                 onClick={addRandomQuestion}
-                className="rounded-md bg-white/10 px-5 py-3 font-black text-white transition hover:bg-white/20"
+                className="rounded-md bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/20"
               >
                 Add Random Question
               </button>
               <button
                 type="button"
                 onClick={saveQuizDetails}
-                className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
+                className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-cyan-100"
               >
                 Save Test Details
               </button>
               <button
                 type="button"
                 onClick={discardQuizDetails}
-                className="rounded-md border border-white/10 px-5 py-3 font-black text-white transition hover:border-white/30"
+                className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-white transition hover:border-white/30"
               >
                 Discard
               </button>
               <button
                 type="button"
                 onClick={copyShareLink}
-                className="rounded-md border border-cyan-300/30 px-5 py-3 font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
               >
                 Copy Share Link
               </button>
@@ -2211,12 +2247,12 @@ function AdminPanel({ navigate }) {
                 <button
                   type="button"
                   onClick={() => setConfirmClearQuestions(true)}
-                  className="ml-auto rounded-md border border-red-400/40 px-5 py-3 font-black text-red-200 transition hover:bg-red-950/40"
+                  className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40 sm:ml-auto"
                 >
                   Clear All Questions
                 </button>
               ) : (
-                <div className="ml-auto flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2 sm:ml-auto">
                   <span className="text-sm font-bold text-red-100">Confirm?</span>
                   <button
                     type="button"
@@ -2481,14 +2517,12 @@ function SiteFooter() {
 
 export default function App() {
   const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
-  const [sharedUsername, setSharedUsername] = useState(() =>
-    getSharedTestUsername(window.location.pathname)
-  );
+  const [sharedTest, setSharedTest] = useState(() => getSharedTestRoute(window.location.pathname));
 
   useEffect(() => {
     const handlePopState = () => {
       setView(getViewFromPath(window.location.pathname));
-      setSharedUsername(getSharedTestUsername(window.location.pathname));
+      setSharedTest(getSharedTestRoute(window.location.pathname));
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -2504,7 +2538,7 @@ export default function App() {
         window.history.pushState({}, "", nextPath);
       }
     }
-    setSharedUsername("");
+    setSharedTest({ testId: "" });
     setView(nextView);
   };
 
@@ -2515,7 +2549,7 @@ export default function App() {
       {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "compatibility" && (
-        <CompatibilityTest navigate={navigate} sharedUsername={sharedUsername} />
+        <CompatibilityTest navigate={navigate} sharedTest={sharedTest} />
       )}
       {view === "login" && <LoginPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} />}
