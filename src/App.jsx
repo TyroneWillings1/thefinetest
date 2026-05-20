@@ -116,8 +116,20 @@ function BackButton({ onClick }) {
 }
 
 function Hub({ navigate }) {
+  const openLogin = async () => {
+    const { data } = await supabase.auth.getSession();
+    navigate(data.session ? "admin" : "login");
+  };
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-12">
+      <button
+        type="button"
+        onClick={openLogin}
+        aria-label="Login"
+        className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-rose-100"
+      />
+
       <p className="mb-5 text-sm font-black uppercase tracking-[0.32em] text-rose-300">
         Choose your test
       </p>
@@ -698,6 +710,7 @@ function AdminPanel({ navigate }) {
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
+  const [setupNeeded, setSetupNeeded] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -729,6 +742,7 @@ function AdminPanel({ navigate }) {
   const loadAdminData = async () => {
     setError("");
     setMessage("");
+    setSetupNeeded(false);
 
     const [{ data: questionData, error: questionError }, { data: submissionData, error: submissionError }] =
       await Promise.all([
@@ -744,7 +758,8 @@ function AdminPanel({ navigate }) {
       ]);
 
     if (questionError || submissionError) {
-      setError("Admin tables are not ready yet. Run the SQL setup in Supabase first.");
+      setSetupNeeded(true);
+      setError("");
       setQuestions([]);
       setSubmissions([]);
       return;
@@ -936,13 +951,28 @@ function AdminPanel({ navigate }) {
             {error}
           </div>
         )}
+        {setupNeeded && (
+          <div className="mt-8 rounded-lg border border-rose-300/30 bg-rose-950/20 p-5">
+            <p className="text-sm font-black uppercase tracking-[0.24em] text-rose-300">
+              Database setup needed
+            </p>
+            <h2 className="mt-3 text-2xl font-black text-white">One Supabase step remains.</h2>
+            <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+              The login worked. The admin tables just have not been created in Supabase yet, so
+              questions and results cannot load.
+            </p>
+            <p className="mt-4 rounded-md bg-white/5 p-3 font-mono text-sm text-zinc-200">
+              Run C:\Users\dog_t\Desktop\thefinetest-live\supabase-setup.sql in Supabase SQL Editor.
+            </p>
+          </div>
+        )}
         {message && (
           <div className="mt-5 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
             {message}
           </div>
         )}
 
-        {tab === "questions" && (
+        {!setupNeeded && tab === "questions" && (
           <div className="mt-8">
             <button
               type="button"
@@ -1075,7 +1105,7 @@ function AdminPanel({ navigate }) {
           </div>
         )}
 
-        {tab === "results" && (
+        {!setupNeeded && tab === "results" && (
           <div className="mt-8 grid gap-4">
             {submissions.length === 0 && <p className="text-zinc-300">No submissions yet.</p>}
             {submissions.map((submission) => (
