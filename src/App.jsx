@@ -30,7 +30,8 @@ const traitGroups = {
 };
 
 const routes = {
-  hub: "/",
+  landing: "/",
+  dashboard: "/dashboard",
   calculator: "/calculator",
   compatibility: "/compatibility",
   login: "/login",
@@ -360,12 +361,13 @@ const fallbackResultBands = [
 ];
 
 function getViewFromPath(pathname) {
+  if (pathname === routes.dashboard) return "dashboard";
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
   if (pathname === routes.login) return "login";
   if (pathname === routes.admin) return "admin";
   if (pathname === routes.settings) return "settings";
-  return "hub";
+  return "landing";
 }
 
 function getFineTier(score, hasWildcard) {
@@ -566,7 +568,7 @@ function FineCalculator({ navigate }) {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-12">
-      <BackButton onClick={() => navigate("hub")} />
+      <BackButton onClick={() => navigate("dashboard")} />
 
       {!showResults ? (
         <section className="rounded-lg border border-white/10 bg-zinc-950/60 p-5 shadow-2xl shadow-black/30 sm:p-8">
@@ -808,7 +810,7 @@ function CompatibilityTest({ navigate }) {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-12">
-      <BackButton onClick={() => navigate("hub")} />
+      <BackButton onClick={() => navigate("dashboard")} />
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
@@ -903,7 +905,7 @@ function CompatibilityTest({ navigate }) {
   );
 }
 
-function LoginPage({ navigate }) {
+function LoginPage({ navigate, isLanding = false }) {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -915,7 +917,7 @@ function LoginPage({ navigate }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        navigate("hub", true);
+        navigate("dashboard", true);
       }
       setLoading(false);
     });
@@ -934,7 +936,7 @@ function LoginPage({ navigate }) {
             email,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/`,
+              emailRedirectTo: `${window.location.origin}/dashboard`,
             },
           });
 
@@ -943,7 +945,7 @@ function LoginPage({ navigate }) {
     } else if (mode === "signup") {
       setMessage("Account created. Check your email if Supabase asks for confirmation.");
     } else {
-      navigate("hub", true);
+      navigate("dashboard", true);
     }
 
     setBusy(false);
@@ -957,7 +959,7 @@ function LoginPage({ navigate }) {
     const { error: socialError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     });
 
@@ -973,15 +975,20 @@ function LoginPage({ navigate }) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-12">
-      <BackButton onClick={() => navigate("hub")} />
+      {!isLanding && <BackButton onClick={() => navigate("landing")} />}
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
-          Account
+          {mode === "signin" ? "Coming back?" : "New here?"}
         </p>
         <h1 className="mt-4 text-4xl font-black text-white">
           {mode === "signin" ? "Sign in" : "Sign up"}
         </h1>
+        <p className="mt-3 leading-7 text-zinc-300">
+          {mode === "signin"
+            ? "Log in to manage your tests, saves, and settings."
+            : "Create an account to build tests and collect results."}
+        </p>
 
         <div className="mt-6 grid grid-cols-2 rounded-full bg-white/5 p-1">
           <button
@@ -1090,7 +1097,7 @@ function SettingsPage({ navigate }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    navigate("hub", true);
+    navigate("landing", true);
   };
 
   if (loading) {
@@ -1103,7 +1110,7 @@ function SettingsPage({ navigate }) {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-12">
-      <BackButton onClick={() => navigate("hub")} />
+      <BackButton onClick={() => navigate("dashboard")} />
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 sm:p-8">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">Settings</p>
@@ -1461,7 +1468,7 @@ function AdminPanel({ navigate }) {
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:py-12">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <BackButton onClick={() => navigate("hub")} />
+        <BackButton onClick={() => navigate("dashboard")} />
         <button
           type="button"
           onClick={logout}
@@ -1876,7 +1883,7 @@ export default function App() {
   }, []);
 
   const navigate = (nextView, replace = false) => {
-    const nextPath = routes[nextView] || routes.hub;
+    const nextPath = routes[nextView] || routes.landing;
     if (window.location.pathname !== nextPath) {
       if (replace) {
         window.history.replaceState({}, "", nextPath);
@@ -1890,7 +1897,8 @@ export default function App() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 text-white">
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#050505_0%,#09090b_55%,#18181b_100%)]" />
-      {view === "hub" && <Hub navigate={navigate} />}
+      {view === "landing" && <LoginPage navigate={navigate} isLanding />}
+      {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "compatibility" && <CompatibilityTest navigate={navigate} />}
       {view === "login" && <LoginPage navigate={navigate} />}
@@ -1899,4 +1907,5 @@ export default function App() {
     </div>
   );
 }
+
 
