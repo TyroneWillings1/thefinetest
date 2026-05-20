@@ -35,7 +35,7 @@ const routes = {
   calculator: "/calculator",
   compatibility: "/compatibility",
   login: "/login",
-  admin: "/admin",
+  admin: "/compatible",
   settings: "/settings",
 };
 
@@ -1167,6 +1167,7 @@ function AdminPanel({ navigate }) {
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
   const [setupNeeded, setSetupNeeded] = useState(false);
+  const [confirmClearQuestions, setConfirmClearQuestions] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -1359,6 +1360,23 @@ function AdminPanel({ navigate }) {
     setQuestions((current) => current.filter((question) => question.id !== id));
   };
 
+  const clearAllQuestions = async () => {
+    setError("");
+    const { error: deleteError } = await supabase
+      .from("compatibility_questions")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setQuestions([]);
+    setConfirmClearQuestions(false);
+    setMessage("All questions cleared.");
+  };
+
   const updateOption = async (questionId, optionId, changes) => {
     setQuestions((current) =>
       current.map((question) =>
@@ -1454,6 +1472,20 @@ function AdminPanel({ navigate }) {
     }
 
     setResultBands((current) => current.filter((band) => band.id !== id));
+  };
+
+  const deleteSubmission = async (id) => {
+    const { error: deleteError } = await supabase
+      .from("compatibility_submissions")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setSubmissions((current) => current.filter((submission) => submission.id !== id));
   };
 
   if (loading) {
@@ -1565,25 +1597,39 @@ function AdminPanel({ navigate }) {
               >
                 Add Random Question
               </button>
+              {!confirmClearQuestions ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearQuestions(true)}
+                  className="rounded-md border border-red-400/40 px-5 py-3 font-black text-red-200 transition hover:bg-red-950/40"
+                >
+                  Clear All Questions
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2">
+                  <span className="text-sm font-bold text-red-100">Confirm?</span>
+                  <button
+                    type="button"
+                    onClick={clearAllQuestions}
+                    className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950"
+                  >
+                    Yes, Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearQuestions(false)}
+                    className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 grid gap-5">
               {questions.map((question) => (
                 <article key={question.id} className="rounded-lg border border-white/10 p-4">
-                  <div className="grid gap-3 md:grid-cols-[88px_1fr_120px]">
-                    <label>
-                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
-                        Order
-                      </span>
-                      <input
-                        type="number"
-                        value={question.sort_order}
-                        onChange={(event) =>
-                          updateQuestion(question.id, { sort_order: Number(event.target.value) })
-                        }
-                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
-                      />
-                    </label>
+                  <div className="grid gap-3 md:grid-cols-[1fr_120px]">
                     <label>
                       <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
                         Question
@@ -1653,24 +1699,17 @@ function AdminPanel({ navigate }) {
                   )}
 
                   <div className="mt-4 grid gap-3">
-                    <div className="hidden grid-cols-[1fr_180px_auto] gap-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-400 md:grid">
+                    <div className="hidden grid-cols-[1fr_180px_auto_auto] gap-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-400 md:grid">
                       <span>Answer</span>
-                      <span>How compatible is this answer?</span>
+                      <span>Compatibility score (0-10 pts)</span>
+                      <span />
                       <span />
                     </div>
                     {(question.compatibility_options || []).map((option) => (
                       <div
                         key={option.id}
-                        className="grid gap-2 rounded-md bg-white/5 p-3 md:grid-cols-[auto_1fr_180px_auto]"
+                        className="grid gap-2 rounded-md bg-white/5 p-3 md:grid-cols-[1fr_180px_auto_auto]"
                       >
-                        <button
-                          type="button"
-                          onClick={() => fillRandomAnswer(question.id, option.id)}
-                          className="rounded-md border border-white/10 px-3 py-2 text-lg transition hover:border-cyan-300 hover:-translate-y-1"
-                          title="Random answer"
-                        >
-                          Dice
-                        </button>
                         <input
                           value={option.label}
                           onChange={(event) =>
@@ -1680,6 +1719,8 @@ function AdminPanel({ navigate }) {
                         />
                         <input
                           type="number"
+                          min="0"
+                          max="10"
                           value={option.points}
                           onChange={(event) =>
                             updateOption(question.id, option.id, {
@@ -1695,6 +1736,15 @@ function AdminPanel({ navigate }) {
                           className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 transition hover:border-cyan-300 hover:text-cyan-200"
                         >
                           Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fillRandomAnswer(question.id, option.id)}
+                          className="rounded-md border border-white/10 px-3 py-2 text-xl transition hover:-translate-y-1 hover:border-cyan-300"
+                          title="Random answer"
+                          aria-label="Random answer"
+                        >
+                          🎲
                         </button>
                       </div>
                     ))}
@@ -1726,6 +1776,17 @@ function AdminPanel({ navigate }) {
                 </article>
               ))}
             </div>
+
+            <p className="mt-6 text-center text-sm text-zinc-400">
+              Want to change the outcome message?{" "}
+              <button
+                type="button"
+                onClick={() => setTab("advanced")}
+                className="font-black text-cyan-300 underline-offset-4 hover:underline"
+              >
+                Open Advanced Settings
+              </button>
+            </p>
           </div>
         )}
 
@@ -1739,9 +1800,6 @@ function AdminPanel({ navigate }) {
                     <h2 className="text-xl font-black text-white">
                       {submission.name || "Anonymous"}
                     </h2>
-                    {submission.contact && (
-                      <p className="mt-1 text-sm text-zinc-400">{submission.contact}</p>
-                    )}
                     <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
                       {new Date(submission.created_at).toLocaleString()}
                     </p>
@@ -1751,6 +1809,14 @@ function AdminPanel({ navigate }) {
                     <p className="text-sm font-black text-cyan-600">{submission.result_tier}</p>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => deleteSubmission(submission.id)}
+                  className="mt-4 rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                >
+                  Delete Result
+                </button>
 
                 <div className="mt-4 grid gap-2">
                   {(submission.compatibility_answers || []).map((answer) => (
