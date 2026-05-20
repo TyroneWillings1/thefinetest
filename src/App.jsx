@@ -46,6 +46,8 @@ const DEFAULT_QUIZ_DETAILS = {
   title: "Compatibility Test",
   description: "",
   public_id: "",
+  short_test_enabled: false,
+  short_question_count: 10,
 };
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
@@ -422,6 +424,10 @@ function getQuizDetailsValue(settingData) {
     title: settingData?.value?.title || DEFAULT_QUIZ_DETAILS.title,
     description: settingData?.value?.description || DEFAULT_QUIZ_DETAILS.description,
     public_id: settingData?.value?.public_id || DEFAULT_QUIZ_DETAILS.public_id,
+    short_test_enabled: settingData?.value?.short_test_enabled === true,
+    short_question_count: Number(
+      settingData?.value?.short_question_count || DEFAULT_QUIZ_DETAILS.short_question_count
+    ),
   };
 }
 
@@ -818,6 +824,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
   const [namePromptOpen, setNamePromptOpen] = useState(false);
   const [anonymousConfirmed, setAnonymousConfirmed] = useState(false);
   const [testLength, setTestLength] = useState("full");
+  const [testLengthChosen, setTestLengthChosen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -887,7 +894,17 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
     setLoading(false);
   };
 
-  const activeQuestions = testLength === "short" ? questions.slice(0, 10) : questions;
+  const shortQuestionCount = Math.min(
+    Math.max(1, Number(quizDetails.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count),
+    questions.length
+  );
+  const shortTestAvailable =
+    quizDetails.short_test_enabled === true && questions.length > shortQuestionCount;
+  const activeQuestions =
+    shortTestAvailable && testLength === "short"
+      ? questions.slice(0, shortQuestionCount)
+      : questions;
+  const estimateMinutes = (count) => Math.max(1, Math.ceil(count * 0.5));
 
   const totals = useMemo(() => {
     const score = activeQuestions.reduce((sum, question) => {
@@ -996,29 +1013,53 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
           </div>
         )}
 
-        {!loading && !result && questions.length > 0 && (
+        {!loading && !result && questions.length > 0 && shortTestAvailable && !testLengthChosen && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-black text-white">Take the short quiz or long quiz?</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTestLength("short");
+                  setTestLengthChosen(true);
+                }}
+                className="rounded-lg border border-cyan-300/40 bg-white/5 p-5 text-left transition hover:bg-white/10"
+              >
+                <span className="block text-2xl font-black text-white">Short Quiz</span>
+                <span className="mt-2 block text-sm font-bold text-cyan-300">
+                  {shortQuestionCount} questions · about {estimateMinutes(shortQuestionCount)} min
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTestLength("full");
+                  setTestLengthChosen(true);
+                }}
+                className="rounded-lg border border-white/10 bg-white p-5 text-left text-zinc-950 transition hover:bg-cyan-100"
+              >
+                <span className="block text-2xl font-black">Long Quiz</span>
+                <span className="mt-2 block text-sm font-bold text-cyan-700">
+                  {questions.length} questions · about {estimateMinutes(questions.length)} min
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!loading &&
+          !result &&
+          questions.length > 0 &&
+          (!shortTestAvailable || testLengthChosen) && (
           <form onSubmit={submitTest} className="mt-8 grid gap-6">
-            {questions.length > 10 && (
-              <div className="grid grid-cols-2 rounded-full bg-white/5 p-1">
-                <button
-                  type="button"
-                  onClick={() => setTestLength("short")}
-                  className={`rounded-full px-4 py-2 text-sm font-black transition ${
-                    testLength === "short" ? "bg-white text-zinc-950" : "text-zinc-300"
-                  }`}
-                >
-                  Short Test
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTestLength("full")}
-                  className={`rounded-full px-4 py-2 text-sm font-black transition ${
-                    testLength === "full" ? "bg-white text-zinc-950" : "text-zinc-300"
-                  }`}
-                >
-                  Full Test
-                </button>
-              </div>
+            {shortTestAvailable && (
+              <button
+                type="button"
+                onClick={() => setTestLengthChosen(false)}
+                className="w-fit text-xs font-black uppercase tracking-[0.18em] text-cyan-300 transition hover:text-white"
+              >
+                Change quiz length
+              </button>
             )}
 
             <label className="block">
@@ -2007,6 +2048,11 @@ function AdminPanel({ navigate }) {
       title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
       description: quizDetails.description.trim(),
       public_id: nextTestId,
+      short_test_enabled: quizDetails.short_test_enabled === true,
+      short_question_count: Math.max(
+        1,
+        Number(quizDetails.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
+      ),
     };
 
     const { error: saveError } = await supabase.from("compatibility_settings").upsert({
@@ -2078,6 +2124,11 @@ function AdminPanel({ navigate }) {
           title: details.title.trim() || DEFAULT_QUIZ_DETAILS.title,
           description: details.description.trim(),
           public_id: nextTestId,
+          short_test_enabled: details.short_test_enabled === true,
+          short_question_count: Math.max(
+            1,
+            Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
+          ),
         },
         updated_at: new Date().toISOString(),
       });
@@ -2173,6 +2224,7 @@ function AdminPanel({ navigate }) {
   const discardAdvancedSettings = () => {
     setResultBands(savedResultBands);
     setAdvancedResultsOn(savedAdvancedResultsOn);
+    setQuizDetails(savedQuizDetails);
     setDeletedResultBandIds([]);
     setError("");
     setMessage("Advanced settings discarded.");
@@ -2181,6 +2233,16 @@ function AdminPanel({ navigate }) {
   const saveAdvancedSettings = async () => {
     setError("");
     setMessage("");
+    const cleanedDetails = {
+      ...quizDetails,
+      title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
+      description: quizDetails.description.trim(),
+      short_test_enabled: quizDetails.short_test_enabled === true,
+      short_question_count: Math.max(
+        1,
+        Number(quizDetails.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
+      ),
+    };
 
     const { error: settingError } = await supabase.from("compatibility_settings").upsert({
       key: "advanced_results",
@@ -2190,6 +2252,17 @@ function AdminPanel({ navigate }) {
 
     if (settingError) {
       setError(settingError.message);
+      return;
+    }
+
+    const { error: quizSettingError } = await supabase.from("compatibility_settings").upsert({
+      key: "quiz_details",
+      value: cleanedDetails,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (quizSettingError) {
+      setError(quizSettingError.message);
       return;
     }
 
@@ -2234,6 +2307,8 @@ function AdminPanel({ navigate }) {
     }
 
     window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedResultsOn));
+    setQuizDetails(cleanedDetails);
+    setSavedQuizDetails(cleanedDetails);
     setMessage("Advanced settings saved.");
     loadAdminData();
   };
@@ -2688,6 +2763,70 @@ function AdminPanel({ navigate }) {
 
         {!setupNeeded && tab === "advanced" && (
           <div className="mt-8 grid gap-5">
+            <div className="rounded-lg border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+                    Test Length
+                  </p>
+                  <h2 className="mt-3 text-2xl font-black text-white">
+                    Want to give an option for a shorter test?
+                  </h2>
+                  <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+                    When enabled, shared test links ask people to choose between a short quiz and
+                    the full quiz before they start.
+                  </p>
+                </div>
+                <label className="flex items-center gap-3 text-sm font-black text-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuizDetails((current) => ({
+                        ...current,
+                        short_test_enabled: !current.short_test_enabled,
+                      }))
+                    }
+                    className={`relative h-8 w-16 rounded-full transition ${
+                      quizDetails.short_test_enabled ? "bg-emerald-400" : "bg-red-500"
+                    }`}
+                    aria-label="Toggle short test option"
+                  >
+                    <span
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
+                        quizDetails.short_test_enabled ? "left-9" : "left-1"
+                      }`}
+                    />
+                  </button>
+                  {quizDetails.short_test_enabled ? "Enabled" : "Disabled"}
+                </label>
+              </div>
+
+              {quizDetails.short_test_enabled && (
+                <label className="mt-5 block max-w-xs">
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                    Questions in short quiz
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(1, questions.length - 1)}
+                    value={quizDetails.short_question_count}
+                    onChange={(event) =>
+                      setQuizDetails((current) => ({
+                        ...current,
+                        short_question_count: Number(event.target.value),
+                      }))
+                    }
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    placeholder="10"
+                  />
+                  <span className="mt-2 block text-sm text-zinc-400">
+                    Example: 10 questions is about {Math.max(1, Math.ceil(10 * 0.5))} minutes.
+                  </span>
+                </label>
+              )}
+            </div>
+
             <div className="rounded-lg border border-white/10 bg-white/5 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
