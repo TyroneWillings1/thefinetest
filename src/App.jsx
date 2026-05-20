@@ -35,6 +35,7 @@ const routes = {
   compatibility: "/compatibility",
   login: "/login",
   admin: "/admin",
+  settings: "/settings",
 };
 
 const tierDescriptions = {
@@ -75,6 +76,7 @@ function getViewFromPath(pathname) {
   if (pathname === routes.compatibility) return "compatibility";
   if (pathname === routes.login) return "login";
   if (pathname === routes.admin) return "admin";
+  if (pathname === routes.settings) return "settings";
   return "hub";
 }
 
@@ -115,12 +117,77 @@ function BackButton({ onClick }) {
   );
 }
 
+function AccountDrawer({ onClose, navigate }) {
+  return (
+    <div className="fixed inset-0 z-20">
+      <button
+        type="button"
+        aria-label="Close account menu"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50"
+      />
+      <aside className="absolute right-0 top-0 flex h-full w-full max-w-xs flex-col border-l border-white/10 bg-zinc-950 p-5 shadow-2xl shadow-black/50">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-300">Account</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/10 px-3 py-1 text-sm font-black text-zinc-200 transition hover:border-white/30"
+          >
+            Close
+          </button>
+        </div>
+
+        <nav className="mt-8 grid gap-3">
+          <button
+            type="button"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-white/30"
+          >
+            <span className="block text-lg font-black text-white">Calculator Saves</span>
+            <span className="mt-1 block text-sm text-zinc-400">Coming soon</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("admin")}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-rose-300/50"
+          >
+            <span className="block text-lg font-black text-white">Compatibility Tests</span>
+            <span className="mt-1 block text-sm text-zinc-400">Manage questions and results</span>
+          </button>
+        </nav>
+
+        <div className="mt-auto border-t border-white/10 pt-4">
+          <button
+            type="button"
+            onClick={() => navigate("settings")}
+            className="w-full rounded-lg border border-white/10 px-4 py-3 text-left font-black text-zinc-200 transition hover:border-white/30"
+          >
+            Settings
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 function Hub({ navigate }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const openAccount = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      setMenuOpen(true);
+    } else {
+      navigate("login");
+    }
+  };
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-12">
       <button
         type="button"
-        onClick={() => navigate("login")}
+        onClick={openAccount}
         aria-label="Login"
         className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-rose-100"
       />
@@ -160,6 +227,8 @@ function Hub({ navigate }) {
           <p className="mt-3 text-zinc-300">Take Tyrone's compatibility test.</p>
         </button>
       </section>
+
+      {menuOpen && <AccountDrawer onClose={() => setMenuOpen(false)} navigate={navigate} />}
     </main>
   );
 }
@@ -316,7 +385,6 @@ function CompatibilityTest({ navigate }) {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -379,7 +447,6 @@ function CompatibilityTest({ navigate }) {
       .from("compatibility_submissions")
       .insert({
         name: name.trim() || null,
-        contact: contact.trim() || null,
         score: totals.score,
         max_score: totals.maxScore,
         percent: totals.percent,
@@ -442,26 +509,15 @@ function CompatibilityTest({ navigate }) {
 
         {!loading && !result && questions.length > 0 && (
           <form onSubmit={submitTest} className="mt-8 grid gap-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-zinc-200">Name</span>
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
-                  placeholder="Optional"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-zinc-200">Contact</span>
-                <input
-                  value={contact}
-                  onChange={(event) => setContact(event.target.value)}
-                  className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
-                  placeholder="Optional"
-                />
-              </label>
-            </div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-zinc-200">Name</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-rose-300"
+                placeholder="Optional"
+              />
+            </label>
 
             {questions.map((question, index) => (
               <fieldset key={question.id} className="rounded-lg border border-white/10 p-4">
@@ -692,6 +748,82 @@ function LoginPage({ navigate }) {
         <p className="mt-5 text-sm leading-6 text-zinc-400">
           Google and Facebook must be enabled in Supabase before those buttons work.
         </p>
+      </section>
+    </main>
+  );
+}
+
+function SettingsPage({ navigate }) {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+      if (!data.session) {
+        navigate("login", true);
+      }
+    });
+  }, [navigate]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate("hub", true);
+  };
+
+  if (loading) {
+    return <main className="mx-auto w-full max-w-md px-5 py-12 text-zinc-300">Loading...</main>;
+  }
+
+  if (!session) {
+    return <main className="mx-auto w-full max-w-md px-5 py-12 text-zinc-300">Redirecting...</main>;
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-12">
+      <BackButton onClick={() => navigate("hub")} />
+
+      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 sm:p-8">
+        <p className="text-sm font-black uppercase tracking-[0.28em] text-rose-300">Settings</p>
+        <h1 className="mt-4 text-4xl font-black text-white">Account Settings</h1>
+
+        <div className="mt-8 grid gap-4">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-zinc-400">Signed in as</p>
+            <p className="mt-2 font-bold text-white">{session.user.email || "Connected account"}</p>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h2 className="text-xl font-black text-white">Legal Information</h2>
+            <p className="mt-2 leading-7 text-zinc-300">
+              Privacy, terms, and data handling pages will live here before this becomes a real
+              public account system.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-rose-300/20 bg-rose-950/20 p-4">
+            <h2 className="text-xl font-black text-white">Delete My Account</h2>
+            <p className="mt-2 leading-7 text-zinc-300">
+              This needs a secure backend action before it can be safely enabled.
+            </p>
+            <button
+              type="button"
+              disabled
+              className="mt-4 rounded-md border border-rose-300/20 px-4 py-2 font-black text-rose-200 opacity-60"
+            >
+              Coming Soon
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={signOut}
+          className="mt-8 rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-rose-100"
+        >
+          Sign Out
+        </button>
       </section>
     </main>
   );
@@ -1174,6 +1306,7 @@ export default function App() {
       {view === "compatibility" && <CompatibilityTest navigate={navigate} />}
       {view === "login" && <LoginPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} />}
+      {view === "settings" && <SettingsPage navigate={navigate} />}
     </div>
   );
 }
