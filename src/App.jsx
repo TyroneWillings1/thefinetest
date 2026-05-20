@@ -35,6 +35,7 @@ const routes = {
   calculator: "/calculator",
   compatibility: "/compatibility",
   login: "/login",
+  tests: "/tests",
   admin: "/compatible",
   settings: "/settings",
 };
@@ -377,6 +378,7 @@ function getViewFromPath(pathname) {
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
   if (pathname === routes.login) return "login";
+  if (pathname === routes.tests) return "tests";
   if (pathname === routes.admin) return "admin";
   if (pathname === routes.settings) return "settings";
   return "landing";
@@ -574,7 +576,7 @@ function AccountDrawer({ onClose, navigate }) {
 
           <button
             type="button"
-            onClick={() => navigate("admin")}
+            onClick={() => navigate("tests")}
             className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
           >
             <span className="block text-lg font-black text-white">Compatibility Tests</span>
@@ -1421,6 +1423,239 @@ function SettingsPage({ navigate }) {
         >
           Sign Out
         </button>
+      </section>
+    </main>
+  );
+}
+
+function TestManager({ navigate }) {
+  const [session, setSession] = useState(null);
+  const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [mode, setMode] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (!data.session) {
+        navigate("login", true);
+        setLoading(false);
+        return;
+      }
+
+      loadTests();
+    });
+  }, [navigate]);
+
+  const loadTests = async () => {
+    setError("");
+    const [
+      { data: settingData, error: settingError },
+      { count, error: countError },
+    ] = await Promise.all([
+      supabase
+        .from("compatibility_settings")
+        .select("value")
+        .eq("key", "quiz_details")
+        .maybeSingle(),
+      supabase
+        .from("compatibility_questions")
+        .select("id", { count: "exact", head: true }),
+    ]);
+
+    if (settingError || countError) {
+      setError(settingError?.message || countError?.message || "Could not load tests.");
+    } else {
+      setQuizDetails(getQuizDetailsValue(settingData));
+      setQuestionCount(count || 0);
+    }
+
+    setLoading(false);
+  };
+
+  const ensureShareId = async () => {
+    if (TEST_ID_PATTERN.test(quizDetails.public_id)) {
+      return quizDetails.public_id;
+    }
+
+    const nextTestId = createTestId();
+    const nextDetails = { ...quizDetails, public_id: nextTestId };
+    const { error: saveError } = await supabase.from("compatibility_settings").upsert({
+      key: "quiz_details",
+      value: nextDetails,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (saveError) {
+      setError(saveError.message);
+      return "";
+    }
+
+    setQuizDetails(nextDetails);
+    return nextTestId;
+  };
+
+  const copyShareLink = async () => {
+    setError("");
+    const testId = await ensureShareId();
+    if (!testId) return;
+
+    await navigator.clipboard.writeText(`${window.location.origin}/t/${testId}`);
+    setMessage("Share link copied.");
+  };
+
+  const resetCurrentTest = async (openEditor = false) => {
+    setError("");
+    setMessage("");
+
+    const [{ error: questionError }, { error: submissionError }, { error: settingError }] =
+      await Promise.all([
+        supabase
+          .from("compatibility_questions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000"),
+        supabase
+          .from("compatibility_submissions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000"),
+        supabase.from("compatibility_settings").upsert({
+          key: "quiz_details",
+          value: DEFAULT_QUIZ_DETAILS,
+          updated_at: new Date().toISOString(),
+        }),
+      ]);
+
+    if (questionError || submissionError || settingError) {
+      setError(
+        questionError?.message ||
+          submissionError?.message ||
+          settingError?.message ||
+          "Could not reset the test."
+      );
+      return;
+    }
+
+    setConfirmDelete(false);
+    setQuizDetails(DEFAULT_QUIZ_DETAILS);
+    setQuestionCount(0);
+
+    if (openEditor) {
+      navigate("admin");
+    } else {
+      setMessage("Test deleted.");
+    }
+  };
+
+  if (loading) {
+    return <main className="mx-auto w-full max-w-2xl px-5 py-12 text-zinc-300">Loading tests...</main>;
+  }
+
+  if (!session) {
+    return <main className="mx-auto w-full max-w-2xl px-5 py-12 text-zinc-300">Redirecting...</main>;
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-3xl px-5 py-8 sm:py-12">
+      <BackButton onClick={() => navigate("dashboard")} />
+
+      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-6">
+        <h1 className="text-3xl font-black text-white">Compatibility Tests</h1>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setMode("list")}
+            className="rounded-lg border border-cyan-300/40 bg-white/5 p-4 text-left transition hover:bg-white/10"
+          >
+            <span className="block text-xl font-black text-white">Edit Existing Test</span>
+            <span className="mt-1 block text-sm text-zinc-400">Open your saved tests</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => resetCurrentTest(true)}
+            className="rounded-lg border border-white/10 bg-white p-4 text-left text-zinc-950 transition hover:bg-cyan-100"
+          >
+            <span className="block text-xl font-black">Create New Test</span>
+            <span className="mt-1 block text-sm text-zinc-600">Start with a blank editor</span>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-5 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="mt-5 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
+            {message}
+          </div>
+        )}
+
+        {mode === "list" && (
+          <div className="mt-6 grid gap-3">
+            <article className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-black text-white">{quizDetails.title}</h2>
+                  {quizDetails.description && (
+                    <p className="mt-1 text-sm leading-6 text-zinc-400">{quizDetails.description}</p>
+                  )}
+                  <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                    {questionCount} questions
+                    {quizDetails.public_id ? ` · /t/${quizDetails.public_id}` : ""}
+                  </p>
+                </div>
+                <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate("admin")}
+                    className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyShareLink}
+                    className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                  >
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {confirmDelete && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 p-3">
+                  <span className="text-sm font-bold text-red-100">Delete this test?</span>
+                  <button
+                    type="button"
+                    onClick={() => resetCurrentTest(false)}
+                    className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950"
+                  >
+                    Yes, Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </article>
+          </div>
+        )}
       </section>
     </main>
   );
@@ -2588,6 +2823,7 @@ export default function App() {
         <CompatibilityTest navigate={navigate} sharedTest={sharedTest} />
       )}
       {view === "login" && <LoginPage navigate={navigate} />}
+      {view === "tests" && <TestManager navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} />}
       {view === "settings" && <SettingsPage navigate={navigate} />}
       <SiteFooter />
