@@ -426,6 +426,10 @@ function pickRandomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+function shuffleItems(items = []) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
 function getSliderColor(value, max) {
   const percent = max ? value / max : 0;
   if (percent < 0.34) return "#38bdf8";
@@ -702,6 +706,9 @@ function CompatibilityTest({ navigate }) {
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [answers, setAnswers] = useState({});
   const [name, setName] = useState("");
+  const [namePromptOpen, setNamePromptOpen] = useState(false);
+  const [anonymousConfirmed, setAnonymousConfirmed] = useState(false);
+  const [testLength, setTestLength] = useState("full");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -745,7 +752,12 @@ function CompatibilityTest({ navigate }) {
       setError("The compatibility test is not set up yet.");
       setQuestions([]);
     } else {
-      setQuestions(data || []);
+      setQuestions(
+        (data || []).map((question) => ({
+          ...question,
+          compatibility_options: shuffleItems(question.compatibility_options || []),
+        }))
+      );
       if (bandData?.length) {
         setResultBands(bandData);
       }
@@ -754,14 +766,16 @@ function CompatibilityTest({ navigate }) {
     setLoading(false);
   };
 
+  const activeQuestions = testLength === "short" ? questions.slice(0, 10) : questions;
+
   const totals = useMemo(() => {
-    const score = questions.reduce((sum, question) => {
+    const score = activeQuestions.reduce((sum, question) => {
       const optionId = answers[question.id];
       const option = question.compatibility_options?.find((item) => item.id === optionId);
       return sum + (option?.points || 0);
     }, 0);
 
-    const maxScore = questions.reduce((sum, question) => {
+    const maxScore = activeQuestions.reduce((sum, question) => {
       const options = question.compatibility_options || [];
       const max = options.length ? Math.max(...options.map((option) => option.points || 0)) : 0;
       return sum + max;
@@ -778,14 +792,19 @@ function CompatibilityTest({ navigate }) {
       tier: band?.title || getCompatibilityTier(percent),
       message: band?.message || "",
     };
-  }, [answers, questions, resultBands, useAdvancedResults]);
+  }, [answers, activeQuestions, resultBands, useAdvancedResults]);
 
-  const submitTest = async (event) => {
+  const submitTest = async (event, forceAnonymous = false) => {
     event.preventDefault();
     setError("");
 
-    if (questions.some((question) => !answers[question.id])) {
+    if (activeQuestions.some((question) => !answers[question.id])) {
       setError("Answer every question before submitting.");
+      return;
+    }
+
+    if (!name.trim() && !anonymousConfirmed && !forceAnonymous) {
+      setNamePromptOpen(true);
       return;
     }
 
@@ -810,7 +829,7 @@ function CompatibilityTest({ navigate }) {
       return;
     }
 
-    const answerRows = questions.map((question) => {
+    const answerRows = activeQuestions.map((question) => {
       const option = question.compatibility_options.find((item) => item.id === answers[question.id]);
       return {
         submission_id: submission.id,
@@ -858,17 +877,46 @@ function CompatibilityTest({ navigate }) {
 
         {!loading && !result && questions.length > 0 && (
           <form onSubmit={submitTest} className="mt-8 grid gap-6">
+            {questions.length > 10 && (
+              <div className="grid grid-cols-2 rounded-full bg-white/5 p-1">
+                <button
+                  type="button"
+                  onClick={() => setTestLength("short")}
+                  className={`rounded-full px-4 py-2 text-sm font-black transition ${
+                    testLength === "short" ? "bg-white text-zinc-950" : "text-zinc-300"
+                  }`}
+                >
+                  Short Test
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTestLength("full")}
+                  className={`rounded-full px-4 py-2 text-sm font-black transition ${
+                    testLength === "full" ? "bg-white text-zinc-950" : "text-zinc-300"
+                  }`}
+                >
+                  Full Test
+                </button>
+              </div>
+            )}
+
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-zinc-200">Name</span>
+              <span className="mb-2 block text-sm font-bold text-zinc-200">
+                Name <span className="text-cyan-300">(optional, but encouraged)</span>
+              </span>
               <input
                 value={name}
-                onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                placeholder="Optional"
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setNamePromptOpen(false);
+                  setAnonymousConfirmed(false);
+                }}
+                className="w-full rounded-md border border-cyan-300/40 bg-white/5 px-4 py-3 text-white shadow-[0_0_22px_rgba(34,211,238,0.18)] outline-none transition focus:border-cyan-200 focus:shadow-[0_0_34px_rgba(34,211,238,0.35)]"
+                placeholder="Optional, but encouraged"
               />
             </label>
 
-            {questions.map((question, index) => (
+            {activeQuestions.map((question, index) => (
               <fieldset key={question.id} className="rounded-lg border border-white/10 p-4">
                 <legend className="px-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-300">
                   Question {index + 1}
@@ -904,6 +952,26 @@ function CompatibilityTest({ navigate }) {
               </fieldset>
             ))}
 
+            {namePromptOpen && (
+              <div className="rounded-lg border border-cyan-300/30 bg-cyan-950/20 p-4">
+                <p className="font-black text-white">Are you sure you do not want to attach a name?</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-300">
+                  It makes your result easier to recognize later.
+                </p>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    setAnonymousConfirmed(true);
+                    setNamePromptOpen(false);
+                    submitTest(event, true);
+                  }}
+                  className="mt-3 rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-cyan-300"
+                >
+                  Submit without a name
+                </button>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={saving}
@@ -922,9 +990,6 @@ function CompatibilityTest({ navigate }) {
             <p className="mt-3 text-6xl font-black">{result.percent}%</p>
             <p className="mt-4 text-2xl font-black text-cyan-600">{result.tier}</p>
             {result.message && <p className="mt-3 leading-6 text-zinc-600">{result.message}</p>}
-            <p className="mt-3 text-zinc-600">
-              Your answers were saved for review.
-            </p>
           </div>
         )}
       </section>
@@ -1459,6 +1524,12 @@ function AdminPanel({ navigate }) {
     setMessage("Quiz details discarded.");
   };
 
+  const copyShareLink = async () => {
+    const link = `${window.location.origin}${routes.compatibility}`;
+    await navigator.clipboard.writeText(link);
+    setMessage("Share link copied.");
+  };
+
   const updateOption = async (questionId, optionId, changes) => {
     setQuestions((current) =>
       current.map((question) =>
@@ -1652,33 +1723,35 @@ function AdminPanel({ navigate }) {
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
         <h1 className="text-4xl font-black text-white">Make your compatibility quiz</h1>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setTab("questions")}
-            className={`rounded-full px-4 py-2 text-sm font-black ${
-              tab === "questions" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
-            }`}
-          >
-            Questions
-          </button>
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setTab("questions")}
+              className={`rounded-full px-4 py-2 text-sm font-black ${
+                tab === "questions" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
+              }`}
+            >
+              Questions
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("advanced")}
+              className={`rounded-full px-4 py-2 text-sm font-black ${
+                tab === "advanced" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
+              }`}
+            >
+              Advanced Settings
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setTab("results")}
-            className={`rounded-full px-4 py-2 text-sm font-black ${
+            className={`ml-auto rounded-full px-4 py-2 text-sm font-black ${
               tab === "results" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
             }`}
           >
             Results
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("advanced")}
-            className={`rounded-full px-4 py-2 text-sm font-black ${
-              tab === "advanced" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
-            }`}
-          >
-            Advanced Settings
           </button>
         </div>
 
@@ -1747,66 +1820,6 @@ function AdminPanel({ navigate }) {
                   />
                 </label>
               </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={saveQuizDetails}
-                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
-                >
-                  Save Test Details
-                </button>
-                <button
-                  type="button"
-                  onClick={discardQuizDetails}
-                  className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-white transition hover:border-white/30"
-                >
-                  Discard
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => addQuestion()}
-                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
-              >
-                Add Question
-              </button>
-              <button
-                type="button"
-                onClick={addRandomQuestion}
-                className="rounded-md bg-white/10 px-5 py-3 font-black text-white transition hover:bg-white/20"
-              >
-                Add Random Question
-              </button>
-              {!confirmClearQuestions ? (
-                <button
-                  type="button"
-                  onClick={() => setConfirmClearQuestions(true)}
-                  className="rounded-md border border-red-400/40 px-5 py-3 font-black text-red-200 transition hover:bg-red-950/40"
-                >
-                  Clear All Questions
-                </button>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2">
-                  <span className="text-sm font-bold text-red-100">Confirm?</span>
-                  <button
-                    type="button"
-                    onClick={clearAllQuestions}
-                    className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950"
-                  >
-                    Yes, Clear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmClearQuestions(false)}
-                    className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
             </div>
 
             <div className="mt-6 grid gap-5">
@@ -1958,6 +1971,71 @@ function AdminPanel({ navigate }) {
                   </div>
                 </article>
               ))}
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+              <button
+                type="button"
+                onClick={() => addQuestion()}
+                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white"
+              >
+                Add Question
+              </button>
+              <button
+                type="button"
+                onClick={addRandomQuestion}
+                className="rounded-md bg-white/10 px-5 py-3 font-black text-white transition hover:bg-white/20"
+              >
+                Add Random Question
+              </button>
+              <button
+                type="button"
+                onClick={saveQuizDetails}
+                className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
+              >
+                Save Test Details
+              </button>
+              <button
+                type="button"
+                onClick={discardQuizDetails}
+                className="rounded-md border border-white/10 px-5 py-3 font-black text-white transition hover:border-white/30"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={copyShareLink}
+                className="rounded-md border border-cyan-300/30 px-5 py-3 font-black text-cyan-200 transition hover:bg-cyan-950/50"
+              >
+                Copy Share Link
+              </button>
+              {!confirmClearQuestions ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearQuestions(true)}
+                  className="ml-auto rounded-md border border-red-400/40 px-5 py-3 font-black text-red-200 transition hover:bg-red-950/40"
+                >
+                  Clear All Questions
+                </button>
+              ) : (
+                <div className="ml-auto flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2">
+                  <span className="text-sm font-bold text-red-100">Confirm?</span>
+                  <button
+                    type="button"
+                    onClick={clearAllQuestions}
+                    className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950"
+                  >
+                    Yes, Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearQuestions(false)}
+                    className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
 
             <p className="mt-6 text-center text-sm text-zinc-400">
@@ -2186,6 +2264,14 @@ function AdminPanel({ navigate }) {
   );
 }
 
+function SiteFooter() {
+  return (
+    <footer className="fixed bottom-3 left-0 right-0 z-10 pointer-events-none px-5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">
+      Copyright 2026 The FINE Test
+    </footer>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
 
@@ -2213,13 +2299,14 @@ export default function App() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 text-white">
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#050505_0%,#09090b_55%,#18181b_100%)]" />
-      {view === "landing" && <LoginPage navigate={navigate} isLanding />}
+      {view === "landing" && <Hub navigate={navigate} />}
       {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "compatibility" && <CompatibilityTest navigate={navigate} />}
       {view === "login" && <LoginPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} />}
       {view === "settings" && <SettingsPage navigate={navigate} />}
+      <SiteFooter />
     </div>
   );
 }
