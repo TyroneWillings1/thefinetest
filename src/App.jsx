@@ -907,19 +907,19 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
     }
 
     setSaving(true);
+    const submissionId = crypto.randomUUID();
 
-    const { data: submission, error: submissionError } = await supabase
+    const { error: submissionError } = await supabase
       .from("compatibility_submissions")
       .insert({
+        id: submissionId,
         name: name.trim() || null,
         score: totals.score,
         max_score: totals.maxScore,
         percent: totals.percent,
         result_tier: totals.tier,
         result_message: totals.message,
-      })
-      .select("id")
-      .single();
+      });
 
     if (submissionError) {
       setError("Something went wrong saving your result.");
@@ -930,7 +930,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
     const answerRows = activeQuestions.map((question) => {
       const option = question.compatibility_options.find((item) => item.id === answers[question.id]);
       return {
-        submission_id: submission.id,
+        submission_id: submissionId,
         question_id: question.id,
         option_id: option.id,
         question_prompt: question.prompt,
