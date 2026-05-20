@@ -41,6 +41,7 @@ const routes = {
 };
 
 const ADVANCED_RESULTS_KEY = "fine_test_advanced_results_enabled";
+const SELECTED_TEST_KEY = "fine_test_selected_test_id";
 
 const DEFAULT_QUIZ_DETAILS = {
   title: "Compatibility Test",
@@ -376,6 +377,7 @@ const fallbackResultBands = [
 
 function getViewFromPath(pathname) {
   if (getSharedTestRoute(pathname).testId) return "compatibility";
+  if (getAdminTestRoute(pathname).testId) return "admin";
   if (pathname === routes.dashboard) return "dashboard";
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.compatibility) return "compatibility";
@@ -388,6 +390,13 @@ function getViewFromPath(pathname) {
 
 function getSharedTestRoute(pathname) {
   const match = pathname.match(/^\/t\/([a-z0-9]{6,12})\/?$/i);
+  return {
+    testId: match?.[1]?.toLowerCase() || "",
+  };
+}
+
+function getAdminTestRoute(pathname) {
+  const match = pathname.match(/^\/compatible\/([a-z0-9]{6,12})\/?$/i);
   return {
     testId: match?.[1]?.toLowerCase() || "",
   };
@@ -420,13 +429,14 @@ function getAdvancedResultsValue(settingData) {
 }
 
 function getQuizDetailsValue(settingData) {
+  const value = settingData?.value || settingData || {};
   return {
-    title: settingData?.value?.title || DEFAULT_QUIZ_DETAILS.title,
-    description: settingData?.value?.description || DEFAULT_QUIZ_DETAILS.description,
-    public_id: settingData?.value?.public_id || DEFAULT_QUIZ_DETAILS.public_id,
-    short_test_enabled: settingData?.value?.short_test_enabled === true,
+    title: value.title || DEFAULT_QUIZ_DETAILS.title,
+    description: value.description || DEFAULT_QUIZ_DETAILS.description,
+    public_id: value.public_id || DEFAULT_QUIZ_DETAILS.public_id,
+    short_test_enabled: value.short_test_enabled === true,
     short_question_count: Number(
-      settingData?.value?.short_question_count || DEFAULT_QUIZ_DETAILS.short_question_count
+      value.short_question_count || DEFAULT_QUIZ_DETAILS.short_question_count
     ),
   };
 }
@@ -441,6 +451,33 @@ function normalizeUsername(value = "") {
 
 function createTestId() {
   return Math.random().toString(36).replace(/[^a-z0-9]/g, "").slice(2, 8);
+}
+
+function resultMarginRows(testId) {
+  return fallbackResultBands.map(({ id, ...band }) => ({ ...band, test_id: testId }));
+}
+
+async function createCompatibilityTest(user, details = DEFAULT_QUIZ_DETAILS) {
+  const publicId = TEST_ID_PATTERN.test(details.public_id) ? details.public_id : createTestId();
+  const { data, error } = await supabase
+    .from("compatibility_tests")
+    .insert({
+      owner_id: user.id,
+      public_id: publicId,
+      title: details.title || DEFAULT_QUIZ_DETAILS.title,
+      description: details.description || "",
+      short_test_enabled: details.short_test_enabled === true,
+      short_question_count:
+        Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count,
+      advanced_results_enabled: false,
+    })
+    .select("*")
+    .single();
+
+  if (error) return { data: null, error };
+
+  await supabase.from("compatibility_result_bands").insert(resultMarginRows(data.id));
+  return { data, error: null };
 }
 
 function usernameFromUser(user) {
@@ -651,7 +688,7 @@ function Hub({ navigate }) {
 
         <button
           type="button"
-          onClick={() => navigate("compatibility")}
+          onClick={() => navigate("tests")}
           className="group rounded-lg border border-white/10 bg-zinc-900 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-300/40"
         >
           <h2 className="text-3xl font-black">Compatibility Test</h2>
@@ -819,6 +856,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
   const [resultBands, setResultBands] = useState(fallbackResultBands);
   const [useAdvancedResults, setUseAdvancedResults] = useState(false);
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
+  const [publicTest, setPublicTest] = useState(null);
   const [answers, setAnswers] = useState({});
   const [name, setName] = useState("");
   const [namePromptOpen, setNamePromptOpen] = useState(false);
@@ -839,42 +877,41 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
     setLoading(true);
     setError("");
 
-    const [
-      { data, error: loadError },
-      { data: bandData },
-      { data: settingsData },
-    ] = await Promise.all([
-      supabase
-        .from("compatibility_questions")
-        .select(
-          "id,prompt,description,description_enabled,sort_order,compatibility_options(id,label,points,sort_order)"
-        )
-        .eq("active", true)
-        .order("sort_order", { ascending: true })
-        .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
-      supabase
-        .from("compatibility_result_bands")
-        .select("id,min_percent,max_percent,title,message,sort_order")
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("compatibility_settings")
-        .select("key,value")
-        .in("key", ["advanced_results", "quiz_details"]),
-    ]);
+    const { data: testData, error: testError } = sharedTest.testId
+      ? await supabase
+          .from("compatibility_tests")
+          .select("*")
+          .eq("public_id", sharedTest.testId)
+          .maybeSingle()
+      : { data: null, error: null };
 
-    const loadedSettings = settingsByKey(settingsData || []);
-    const loadedQuizDetails = getQuizDetailsValue(loadedSettings.quiz_details);
-    if (sharedTest.testId && sharedTest.testId !== loadedQuizDetails.public_id) {
+    if (testError || !testData) {
       setError("This test link does not exist yet.");
       setQuestions([]);
       setLoading(false);
       return;
     }
 
-    if (settingsData) {
-      setUseAdvancedResults(getAdvancedResultsValue(loadedSettings.advanced_results));
-      setQuizDetails(loadedQuizDetails);
-    }
+    const [{ data, error: loadError }, { data: bandData }] = await Promise.all([
+      supabase
+        .from("compatibility_questions")
+        .select(
+          "id,prompt,description,description_enabled,sort_order,compatibility_options(id,label,points,sort_order)"
+        )
+        .eq("test_id", testData.id)
+        .eq("active", true)
+        .order("sort_order", { ascending: true })
+        .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
+      supabase
+        .from("compatibility_result_bands")
+        .select("id,min_percent,max_percent,title,message,sort_order")
+        .eq("test_id", testData.id)
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    setUseAdvancedResults(testData.advanced_results_enabled === true);
+    setQuizDetails(getQuizDetailsValue(testData));
+    setPublicTest(testData);
 
     if (loadError) {
       setError("The compatibility test is not set up yet.");
@@ -941,6 +978,11 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
       return;
     }
 
+    if (!publicTest?.id) {
+      setError("This test is not ready yet.");
+      return;
+    }
+
     if (!name.trim() && !anonymousConfirmed && !forceAnonymous) {
       setNamePromptOpen(true);
       return;
@@ -953,6 +995,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
       .from("compatibility_submissions")
       .insert({
         id: submissionId,
+        test_id: publicTest.id,
         name: name.trim() || null,
         score: totals.score,
         max_score: totals.maxScore,
@@ -1483,13 +1526,13 @@ function SettingsPage({ navigate }) {
   );
 }
 
-function TestManager({ navigate }) {
+function TestManager({ navigate, navigateToPath }) {
   const [session, setSession] = useState(null);
-  const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
-  const [questionCount, setQuestionCount] = useState(0);
+  const [tests, setTests] = useState([]);
+  const [questionCounts, setQuestionCounts] = useState({});
   const [submissions, setSubmissions] = useState([]);
   const [mode, setMode] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -1503,118 +1546,122 @@ function TestManager({ navigate }) {
         return;
       }
 
-      loadTests();
+      loadTests(data.session);
     });
   }, [navigate]);
 
-  const loadTests = async () => {
+  const loadTests = async (activeSession = session) => {
+    if (!activeSession?.user?.id) return;
     setError("");
-    const [
-      { data: settingData, error: settingError },
-      { count, error: countError },
-      { data: submissionData, error: submissionError },
-    ] = await Promise.all([
-      supabase
-        .from("compatibility_settings")
-        .select("value")
-        .eq("key", "quiz_details")
-        .maybeSingle(),
-      supabase
-        .from("compatibility_questions")
-        .select("id", { count: "exact", head: true }),
-      supabase
-        .from("compatibility_submissions")
-        .select("id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
-        .order("created_at", { ascending: false }),
-    ]);
+    const { data: testRows, error: testsError } = await supabase
+      .from("compatibility_tests")
+      .select("*")
+      .eq("owner_id", activeSession.user.id)
+      .order("created_at", { ascending: true });
 
-    if (settingError || countError || submissionError) {
-      setError(
-        settingError?.message ||
-          countError?.message ||
-          submissionError?.message ||
-          "Could not load tests."
-      );
+    if (testsError) {
+      setError(testsError.message);
+      setLoading(false);
+      return;
+    }
+
+    setTests(testRows || []);
+
+    const counts = {};
+    await Promise.all(
+      (testRows || []).map(async (test) => {
+        const { count } = await supabase
+          .from("compatibility_questions")
+          .select("id", { count: "exact", head: true })
+          .eq("test_id", test.id);
+        counts[test.id] = count || 0;
+      })
+    );
+    setQuestionCounts(counts);
+
+    const testIds = (testRows || []).map((test) => test.id);
+    const { data: submissionData, error: submissionError } = await supabase
+      .from("compatibility_submissions")
+      .select("id,test_id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
+      .order("created_at", { ascending: false });
+
+    if (submissionError) {
+      setError(submissionError.message);
     } else {
-      setQuizDetails(getQuizDetailsValue(settingData));
-      setQuestionCount(count || 0);
-      setSubmissions(submissionData || []);
+      setSubmissions((submissionData || []).filter((submission) => testIds.includes(submission.test_id)));
     }
 
     setLoading(false);
   };
 
-  const ensureShareId = async () => {
-    if (TEST_ID_PATTERN.test(quizDetails.public_id)) {
-      return quizDetails.public_id;
-    }
+  const ensureShareId = async (test) => {
+    if (TEST_ID_PATTERN.test(test.public_id)) return test.public_id;
 
     const nextTestId = createTestId();
-    const nextDetails = { ...quizDetails, public_id: nextTestId };
-    const { error: saveError } = await supabase.from("compatibility_settings").upsert({
-      key: "quiz_details",
-      value: nextDetails,
-      updated_at: new Date().toISOString(),
-    });
+    const { error: saveError } = await supabase
+      .from("compatibility_tests")
+      .update({ public_id: nextTestId, updated_at: new Date().toISOString() })
+      .eq("id", test.id)
+      .eq("owner_id", session.user.id);
 
     if (saveError) {
       setError(saveError.message);
       return "";
     }
 
-    setQuizDetails(nextDetails);
+    setTests((current) =>
+      current.map((item) => (item.id === test.id ? { ...item, public_id: nextTestId } : item))
+    );
     return nextTestId;
   };
 
-  const copyShareLink = async () => {
+  const copyShareLink = async (test) => {
     setError("");
-    const testId = await ensureShareId();
+    const testId = await ensureShareId(test);
     if (!testId) return;
 
     await navigator.clipboard.writeText(`${window.location.origin}/t/${testId}`);
     setMessage("Share link copied.");
   };
 
-  const resetCurrentTest = async (openEditor = false) => {
-    setError("");
-    setMessage("");
-
-    const [{ error: questionError }, { error: submissionError }, { error: settingError }] =
-      await Promise.all([
-        supabase
-          .from("compatibility_questions")
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000"),
-        supabase
-          .from("compatibility_submissions")
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000"),
-        supabase.from("compatibility_settings").upsert({
-          key: "quiz_details",
-          value: DEFAULT_QUIZ_DETAILS,
-          updated_at: new Date().toISOString(),
-        }),
-      ]);
-
-    if (questionError || submissionError || settingError) {
-      setError(
-        questionError?.message ||
-          submissionError?.message ||
-          settingError?.message ||
-          "Could not reset the test."
-      );
+  const createNewTest = async () => {
+    const created = await createCompatibilityTest(session.user);
+    if (created.error) {
+      setError(created.error.message);
       return;
     }
 
-    setConfirmDelete(false);
-    setQuizDetails(DEFAULT_QUIZ_DETAILS);
-    setQuestionCount(0);
+    window.localStorage.setItem(SELECTED_TEST_KEY, created.data.id);
+    navigateToPath(`/compatible/${created.data.public_id}`, "admin");
+  };
 
-    if (openEditor) {
-      navigate("admin");
-    } else {
-      setMessage("Test deleted.");
+  const editTest = async (test) => {
+    const testId = await ensureShareId(test);
+    if (!testId) return;
+
+    window.localStorage.setItem(SELECTED_TEST_KEY, test.id);
+    navigateToPath(`/compatible/${testId}`, "admin");
+  };
+
+  const deleteTest = async (test) => {
+    setError("");
+    setMessage("");
+
+    const { error: deleteError } = await supabase
+      .from("compatibility_tests")
+      .delete()
+      .eq("id", test.id)
+      .eq("owner_id", session.user.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
     }
+
+    setConfirmDelete("");
+    setTests((current) => current.filter((item) => item.id !== test.id));
+    setSubmissions((current) => current.filter((submission) => submission.test_id !== test.id));
+    setMessage("Test deleted.");
   };
 
   if (loading) {
@@ -1624,6 +1671,13 @@ function TestManager({ navigate }) {
   if (!session) {
     return <main className="mx-auto w-full max-w-2xl px-5 py-12 text-zinc-300">Redirecting...</main>;
   }
+
+  const currentTest = tests[0];
+  const quizDetails = getQuizDetailsValue(currentTest || DEFAULT_QUIZ_DETAILS);
+  const questionCount = currentTest ? questionCounts[currentTest.id] || 0 : 0;
+  const visibleSubmissions = currentTest
+    ? submissions.filter((submission) => submission.test_id === currentTest.id)
+    : [];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-8 sm:py-12">
@@ -1651,7 +1705,7 @@ function TestManager({ navigate }) {
           </button>
           <button
             type="button"
-            onClick={() => resetCurrentTest(true)}
+            onClick={createNewTest}
             className="rounded-lg border border-white/10 bg-white p-4 text-left text-zinc-950 transition hover:bg-cyan-100"
           >
             <span className="block text-xl font-black">Create New Test</span>
@@ -1687,21 +1741,21 @@ function TestManager({ navigate }) {
                 <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
                   <button
                     type="button"
-                    onClick={() => navigate("admin")}
+                    onClick={() => currentTest && editTest(currentTest)}
                     className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    onClick={copyShareLink}
+                    onClick={() => currentTest && copyShareLink(currentTest)}
                     className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
                   >
                     Share
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirmDelete(true)}
+                    onClick={() => currentTest && setConfirmDelete(currentTest.id)}
                     className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
                   >
                     Delete
@@ -1709,19 +1763,19 @@ function TestManager({ navigate }) {
                 </div>
               </div>
 
-              {confirmDelete && (
+              {confirmDelete === currentTest?.id && (
                 <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 p-3">
                   <span className="text-sm font-bold text-red-100">Delete this test?</span>
                   <button
                     type="button"
-                    onClick={() => resetCurrentTest(false)}
+                    onClick={() => currentTest && deleteTest(currentTest)}
                     className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950"
                   >
                     Yes, Delete
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirmDelete(false)}
+                    onClick={() => setConfirmDelete("")}
                     className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
                   >
                     Cancel
@@ -1740,17 +1794,17 @@ function TestManager({ navigate }) {
               </p>
               <h2 className="mt-2 text-2xl font-black text-white">{quizDetails.title}</h2>
               <p className="mt-1 text-sm text-zinc-400">
-                {submissions.length} saved {submissions.length === 1 ? "submission" : "submissions"}
+                {visibleSubmissions.length} saved {visibleSubmissions.length === 1 ? "submission" : "submissions"}
               </p>
             </div>
 
-            {submissions.length === 0 && (
+            {visibleSubmissions.length === 0 && (
               <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-zinc-300">
                 No results yet.
               </p>
             )}
 
-            {submissions.map((submission) => (
+            {visibleSubmissions.map((submission) => (
               <article key={submission.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -1789,7 +1843,7 @@ function TestManager({ navigate }) {
   );
 }
 
-function AdminPanel({ navigate }) {
+function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1802,6 +1856,7 @@ function AdminPanel({ navigate }) {
   const [deletedResultBandIds, setDeletedResultBandIds] = useState([]);
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [savedQuizDetails, setSavedQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
+  const [activeTest, setActiveTest] = useState(null);
   const [profile, setProfile] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
@@ -1829,7 +1884,7 @@ function AdminPanel({ navigate }) {
     if (session) {
       loadAdminData();
     }
-  }, [session]);
+  }, [session, adminTest.testId]);
 
   useEffect(() => {
     if (!loading && !session) {
@@ -1842,11 +1897,49 @@ function AdminPanel({ navigate }) {
     setMessage("");
     setSetupNeeded(false);
 
+    const { data: testRows, error: testsError } = await supabase
+      .from("compatibility_tests")
+      .select("*")
+      .eq("owner_id", session.user.id)
+      .order("created_at", { ascending: true });
+
+    if (testsError) {
+      setSetupNeeded(true);
+      setError(testsError.message);
+      return;
+    }
+
+    const requestedTestId = adminTest.testId;
+    let currentTest =
+      (requestedTestId && testRows?.find((test) => test.public_id === requestedTestId)) ||
+      testRows?.find((test) => test.id === window.localStorage.getItem(SELECTED_TEST_KEY)) ||
+      testRows?.[0];
+
+    if (requestedTestId && !currentTest) {
+      setError("That editor link is not connected to this account.");
+      setQuestions([]);
+      setSubmissions([]);
+      setResultBands([]);
+      return;
+    }
+
+    if (!currentTest) {
+      const created = await createCompatibilityTest(session.user);
+      if (created.error) {
+        setSetupNeeded(true);
+        setError(created.error.message);
+        return;
+      }
+      currentTest = created.data;
+    }
+
+    window.localStorage.setItem(SELECTED_TEST_KEY, currentTest.id);
+    setActiveTest(currentTest);
+
     const [
       { data: questionData, error: questionError },
       { data: submissionData, error: submissionError },
       { data: bandData, error: bandError },
-      { data: settingData, error: settingError },
     ] =
       await Promise.all([
         supabase
@@ -1854,29 +1947,27 @@ function AdminPanel({ navigate }) {
           .select(
             "id,prompt,description,description_enabled,sort_order,active,compatibility_options(id,label,points,sort_order)"
           )
+          .eq("test_id", currentTest.id)
           .order("sort_order", { ascending: true })
           .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
         supabase
           .from("compatibility_submissions")
           .select("id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
+          .eq("test_id", currentTest.id)
           .order("created_at", { ascending: false }),
         supabase
           .from("compatibility_result_bands")
           .select("id,min_percent,max_percent,title,message,sort_order")
+          .eq("test_id", currentTest.id)
           .order("sort_order", { ascending: true }),
-        supabase
-          .from("compatibility_settings")
-          .select("key,value")
-          .in("key", ["advanced_results", "quiz_details"]),
       ]);
 
-    if (questionError || submissionError || bandError || settingError) {
+    if (questionError || submissionError || bandError) {
       setSetupNeeded(true);
       setError(
         questionError?.message ||
           submissionError?.message ||
           bandError?.message ||
-          settingError?.message ||
           "Supabase could not load the admin tables."
       );
       setQuestions([]);
@@ -1889,13 +1980,21 @@ function AdminPanel({ navigate }) {
     setQuestions(loadedQuestions);
     setSavedQuestions(cloneQuestions(loadedQuestions));
     setSubmissions(submissionData || []);
-    const loadedBands = bandData || [];
+    let loadedBands = bandData || [];
+    if (loadedBands.length === 0) {
+      await supabase.from("compatibility_result_bands").insert(resultMarginRows(currentTest.id));
+      const { data: freshBands } = await supabase
+        .from("compatibility_result_bands")
+        .select("id,min_percent,max_percent,title,message,sort_order")
+        .eq("test_id", currentTest.id)
+        .order("sort_order", { ascending: true });
+      loadedBands = freshBands || [];
+    }
     setResultBands(loadedBands);
     setSavedResultBands(loadedBands);
     setDeletedResultBandIds([]);
-    const loadedSettings = settingsByKey(settingData || []);
-    const advancedEnabled = getAdvancedResultsValue(loadedSettings.advanced_results);
-    const loadedQuizDetails = getQuizDetailsValue(loadedSettings.quiz_details);
+    const advancedEnabled = currentTest.advanced_results_enabled === true;
+    const loadedQuizDetails = getQuizDetailsValue(currentTest);
     setAdvancedResultsOn(advancedEnabled);
     setSavedAdvancedResultsOn(advancedEnabled);
     setQuizDetails(loadedQuizDetails);
@@ -1928,6 +2027,7 @@ function AdminPanel({ navigate }) {
     const { data, error: insertError } = await supabase
       .from("compatibility_questions")
       .insert({
+        test_id: activeTest.id,
         prompt: template?.prompt || "New question",
         description: template?.description || "",
         description_enabled: Boolean(template?.description),
@@ -2025,7 +2125,7 @@ function AdminPanel({ navigate }) {
     const { error: deleteError } = await supabase
       .from("compatibility_questions")
       .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
+      .eq("test_id", activeTest.id);
 
     if (deleteError) {
       setError(deleteError.message);
@@ -2055,11 +2155,18 @@ function AdminPanel({ navigate }) {
       ),
     };
 
-    const { error: saveError } = await supabase.from("compatibility_settings").upsert({
-      key: "quiz_details",
-      value: cleanedDetails,
-      updated_at: new Date().toISOString(),
-    });
+    const { error: saveError } = await supabase
+      .from("compatibility_tests")
+      .update({
+        public_id: cleanedDetails.public_id,
+        title: cleanedDetails.title,
+        description: cleanedDetails.description,
+        short_test_enabled: cleanedDetails.short_test_enabled,
+        short_question_count: cleanedDetails.short_question_count,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", activeTest.id)
+      .eq("owner_id", session.user.id);
 
     if (saveError) {
       setError(saveError.message);
@@ -2118,20 +2225,21 @@ function AdminPanel({ navigate }) {
     if (!TEST_ID_PATTERN.test(details.public_id)) {
       const nextTestId = createTestId();
       details = { ...details, public_id: nextTestId };
-      const { error: saveError } = await supabase.from("compatibility_settings").upsert({
-        key: "quiz_details",
-        value: {
+      const { error: saveError } = await supabase
+        .from("compatibility_tests")
+        .update({
+          public_id: nextTestId,
           title: details.title.trim() || DEFAULT_QUIZ_DETAILS.title,
           description: details.description.trim(),
-          public_id: nextTestId,
           short_test_enabled: details.short_test_enabled === true,
           short_question_count: Math.max(
             1,
             Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
           ),
-        },
-        updated_at: new Date().toISOString(),
-      });
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", activeTest.id)
+        .eq("owner_id", session.user.id);
 
       if (saveError) {
         setError(saveError.message);
@@ -2204,6 +2312,7 @@ function AdminPanel({ navigate }) {
       ...current,
       {
         id: `draft-${Date.now()}`,
+        test_id: activeTest?.id,
         min_percent: 0,
         max_percent: 100,
         title: "Custom Result",
@@ -2244,25 +2353,21 @@ function AdminPanel({ navigate }) {
       ),
     };
 
-    const { error: settingError } = await supabase.from("compatibility_settings").upsert({
-      key: "advanced_results",
-      value: { enabled: advancedResultsOn },
-      updated_at: new Date().toISOString(),
-    });
+    const { error: settingError } = await supabase
+      .from("compatibility_tests")
+      .update({
+        advanced_results_enabled: advancedResultsOn,
+        title: cleanedDetails.title,
+        description: cleanedDetails.description,
+        short_test_enabled: cleanedDetails.short_test_enabled,
+        short_question_count: cleanedDetails.short_question_count,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", activeTest.id)
+      .eq("owner_id", session.user.id);
 
     if (settingError) {
       setError(settingError.message);
-      return;
-    }
-
-    const { error: quizSettingError } = await supabase.from("compatibility_settings").upsert({
-      key: "quiz_details",
-      value: cleanedDetails,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (quizSettingError) {
-      setError(quizSettingError.message);
       return;
     }
 
@@ -2297,7 +2402,7 @@ function AdminPanel({ navigate }) {
 
     if (draftBands.length) {
       const { error: insertError } = await supabase.from("compatibility_result_bands").insert(
-        draftBands.map(({ id, ...band }) => band)
+        draftBands.map(({ id, ...band }) => ({ ...band, test_id: activeTest.id }))
       );
 
       if (insertError) {
@@ -3015,11 +3120,13 @@ function SiteFooter() {
 export default function App() {
   const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
   const [sharedTest, setSharedTest] = useState(() => getSharedTestRoute(window.location.pathname));
+  const [adminTest, setAdminTest] = useState(() => getAdminTestRoute(window.location.pathname));
 
   useEffect(() => {
     const handlePopState = () => {
       setView(getViewFromPath(window.location.pathname));
       setSharedTest(getSharedTestRoute(window.location.pathname));
+      setAdminTest(getAdminTestRoute(window.location.pathname));
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -3036,6 +3143,20 @@ export default function App() {
       }
     }
     setSharedTest({ testId: "" });
+    setAdminTest({ testId: "" });
+    setView(nextView);
+  };
+
+  const navigateToPath = (path, nextView = getViewFromPath(path), replace = false) => {
+    if (window.location.pathname !== path) {
+      if (replace) {
+        window.history.replaceState({}, "", path);
+      } else {
+        window.history.pushState({}, "", path);
+      }
+    }
+    setSharedTest(getSharedTestRoute(path));
+    setAdminTest(getAdminTestRoute(path));
     setView(nextView);
   };
 
@@ -3049,8 +3170,8 @@ export default function App() {
         <CompatibilityTest navigate={navigate} sharedTest={sharedTest} />
       )}
       {view === "login" && <LoginPage navigate={navigate} />}
-      {view === "tests" && <TestManager navigate={navigate} />}
-      {view === "admin" && <AdminPanel navigate={navigate} />}
+      {view === "tests" && <TestManager navigate={navigate} navigateToPath={navigateToPath} />}
+      {view === "admin" && <AdminPanel navigate={navigate} adminTest={adminTest} />}
       {view === "settings" && <SettingsPage navigate={navigate} />}
       <SiteFooter />
     </div>
