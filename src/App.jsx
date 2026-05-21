@@ -1719,7 +1719,7 @@ function TestManager({ navigate, navigateToPath }) {
         </div>
 
         {error && (
-          <div className="mt-5 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
+          <div className="animate-soft-in mt-4 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
             {error}
           </div>
         )}
@@ -2573,22 +2573,22 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:py-12">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:py-8">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <BackButton onClick={() => navigate("dashboard")} />
         <button
           type="button"
           onClick={logout}
-          className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-zinc-200 transition hover:border-white/30"
+          className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-zinc-200 hover:border-white/30"
         >
           Sign out
         </button>
       </div>
 
-      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
-        <h1 className="text-4xl font-black text-white">Make your compatibility quiz</h1>
+      <section className="animate-soft-in rounded-lg border border-white/10 bg-zinc-950/70 p-4 shadow-2xl shadow-black/30 sm:p-5">
+        <h1 className="text-3xl font-black text-white sm:text-4xl">Make your compatibility quiz</h1>
 
-        <div className="mt-6 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -2611,8 +2611,15 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           </div>
           <button
             type="button"
+            onClick={copyShareLink}
+            className="ml-auto rounded-full border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 hover:bg-cyan-950/50"
+          >
+            Copy Share Link
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("results")}
-            className={`ml-auto rounded-full px-4 py-2 text-sm font-black ${
+            className={`rounded-full px-4 py-2 text-sm font-black ${
               tab === "results" ? "bg-white text-zinc-950" : "bg-white/10 text-white"
             }`}
           >
@@ -2626,7 +2633,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           </div>
         )}
         {setupNeeded && (
-          <div className="mt-8 rounded-lg border border-cyan-300/30 bg-cyan-950/20 p-5">
+          <div className="animate-soft-in mt-6 rounded-lg border border-cyan-300/30 bg-cyan-950/20 p-4">
             <p className="text-sm font-black uppercase tracking-[0.24em] text-cyan-300">
               Database setup needed
             </p>
@@ -2646,14 +2653,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           </div>
         )}
         {message && (
-          <div className="mt-5 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
+          <div className="animate-soft-in mt-4 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
             {message}
           </div>
         )}
 
         {!setupNeeded && tab === "questions" && (
-          <div className="mt-6">
-            <div className="mb-5 rounded-lg border border-white/10 bg-white/5 p-3 sm:p-4">
+          <div className="animate-soft-in mt-4">
+            <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
               <div className="grid gap-3 md:grid-cols-[1fr_1.25fr_170px]">
                 <label>
                   <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
@@ -2697,27 +2704,26 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-5">
-              {questions.map((question) => (
-                <article key={question.id} className="rounded-lg border border-white/10 p-4">
-                  <div className="grid gap-3 md:grid-cols-[1fr_120px]">
-                    <label>
-                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
-                        Question
+            <div className="mt-4 grid gap-3">
+              {questions.map((question, questionIndex) => (
+                <article
+                  key={question.id}
+                  className="animate-soft-in rounded-lg border border-white/10 bg-zinc-950/40 p-3"
+                >
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-cyan-300 px-2 text-sm font-black text-zinc-950">
+                        {questionIndex + 1}
                       </span>
-                      <input
-                        value={question.prompt}
-                        onChange={(event) =>
-                          updateQuestion(question.id, { prompt: event.target.value })
-                        }
-                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
-                      />
-                    </label>
-                    <label className="flex items-end gap-2 pb-2 text-sm font-bold text-zinc-200">
+                      <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                        Question {questionIndex + 1} of {questions.length}
+                      </span>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm font-bold text-zinc-200">
                       <button
                         type="button"
                         onClick={() => updateQuestion(question.id, { active: !question.active })}
-                        className={`relative h-7 w-14 rounded-full transition ${
+                        className={`relative h-7 w-14 rounded-full ${
                           question.active ? "bg-emerald-400" : "bg-red-500"
                         }`}
                         aria-label={question.active ? "Disable question" : "Enable question"}
@@ -2732,7 +2738,22 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     </label>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="grid gap-2">
+                    <label>
+                      <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                        Question text
+                      </span>
+                      <input
+                        value={question.prompt}
+                        onChange={(event) =>
+                          updateQuestion(question.id, { prompt: event.target.value })
+                        }
+                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
                       Description
                     </p>
@@ -2757,7 +2778,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   </div>
 
                   {question.description_enabled !== false && (
-                    <label className="mt-3 block">
+                    <label className="mt-2 block">
                       <textarea
                         value={question.description || ""}
                         onChange={(event) =>
@@ -2769,8 +2790,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     </label>
                   )}
 
-                  <div className="mt-4 grid gap-3">
-                    <div className="hidden grid-cols-[1fr_180px_auto_auto] gap-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-400 md:grid">
+                  <div className="mt-3 grid gap-2">
+                    <div className="hidden grid-cols-[1fr_150px_auto_auto] gap-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-400 md:grid">
                       <span>Answer</span>
                       <span>Compatibility score (0-10 pts)</span>
                       <span />
@@ -2779,7 +2800,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     {(question.compatibility_options || []).map((option) => (
                       <div
                         key={option.id}
-                        className="grid gap-2 rounded-md bg-white/5 p-3 md:grid-cols-[1fr_180px_auto_auto]"
+                        className="grid gap-2 rounded-md bg-white/5 p-2 md:grid-cols-[1fr_150px_auto_auto]"
                       >
                         <input
                           value={option.label}
@@ -2804,14 +2825,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         <button
                           type="button"
                           onClick={() => deleteOption(option.id)}
-                          className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 transition hover:border-cyan-300 hover:text-cyan-200"
+                          className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 hover:border-cyan-300 hover:text-cyan-200"
                         >
                           Delete
                         </button>
                         <button
                           type="button"
                           onClick={() => fillRandomAnswer(question.id, option.id)}
-                          className="rounded-md border border-white/10 px-3 py-2 text-xl transition hover:-translate-y-1 hover:border-cyan-300"
+                          className="rounded-md border border-white/10 px-3 py-2 text-xl hover:border-cyan-300"
                           title="Random answer"
                           aria-label="Random answer"
                         >
@@ -2821,25 +2842,25 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     ))}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => addOption(question)}
-                      className="rounded-md bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/20"
+                      className="rounded-md bg-white/10 px-4 py-2 text-sm font-black text-white hover:bg-white/20"
                     >
                       Add Answer
                     </button>
                     <button
                       type="button"
                       onClick={() => deleteQuestion(question.id)}
-                      className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                      className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 hover:bg-cyan-950/50"
                     >
                       Delete Question
                     </button>
                     <button
                       type="button"
                       onClick={() => fillRandomQuestion(question.id)}
-                      className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-cyan-300 hover:text-white"
+                      className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 hover:border-cyan-300 hover:text-white"
                     >
                       Randomize Question
                     </button>
@@ -2848,39 +2869,39 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               ))}
             </div>
 
-            <div className="mt-5 grid gap-2 rounded-lg border border-white/10 bg-white/5 p-3 sm:flex sm:flex-wrap">
+            <div className="sticky bottom-7 mt-4 grid gap-2 rounded-lg border border-white/10 bg-zinc-950/95 p-2 shadow-2xl shadow-black/40 backdrop-blur sm:flex sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => addQuestion()}
-                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
+                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 hover:bg-white"
               >
                 Add Question
               </button>
               <button
                 type="button"
                 onClick={addRandomQuestion}
-                className="rounded-md bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/20"
+                className="rounded-md bg-white/10 px-4 py-2 text-sm font-black text-white hover:bg-white/20"
               >
                 Add Random Question
               </button>
               <button
                 type="button"
                 onClick={saveQuizDetails}
-                className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-cyan-100"
+                className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 hover:bg-cyan-100"
               >
                 Save Test
               </button>
               <button
                 type="button"
                 onClick={discardQuizDetails}
-                className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-white transition hover:border-white/30"
+                className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-white hover:border-white/30"
               >
                 Discard
               </button>
               <button
                 type="button"
                 onClick={copyShareLink}
-                className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 hover:bg-cyan-950/50"
               >
                 Copy Share Link
               </button>
@@ -2888,7 +2909,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                 <button
                   type="button"
                   onClick={() => setConfirmClearQuestions(true)}
-                  className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40 sm:ml-auto"
+                  className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 hover:bg-red-950/40 sm:ml-auto"
                 >
                   Clear All Questions
                 </button>
