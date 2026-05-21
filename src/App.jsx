@@ -1122,8 +1122,8 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
                   setNamePromptOpen(false);
                   setAnonymousConfirmed(false);
                 }}
-                className="w-full rounded-md border border-cyan-300/40 bg-white/5 px-4 py-3 text-white shadow-[0_0_22px_rgba(34,211,238,0.18)] outline-none transition focus:border-cyan-200 focus:shadow-[0_0_34px_rgba(34,211,238,0.35)]"
-                placeholder="Optional, but encouraged"
+                className="w-full rounded-md border border-cyan-300/60 bg-transparent px-4 py-3 text-white shadow-[0_0_0_1px_rgba(103,232,249,0.12),0_0_24px_rgba(34,211,238,0.16)] outline-none transition focus:border-cyan-100 focus:shadow-[0_0_0_1px_rgba(103,232,249,0.28),0_0_34px_rgba(34,211,238,0.32)]"
+                placeholder="Your name"
               />
             </label>
 
@@ -2038,6 +2038,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
   const [editorReady, setEditorReady] = useState(false);
+  const [savingTest, setSavingTest] = useState(false);
   const [saveConfirmed, setSaveConfirmed] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [confirmClearQuestions, setConfirmClearQuestions] = useState(false);
@@ -2375,6 +2376,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const saveQuizDetails = async () => {
     setError("");
     setMessage("");
+    setSavingTest(true);
     setSaveConfirmed(false);
 
     const nextTestId = TEST_ID_PATTERN.test(quizDetails.public_id)
@@ -2406,11 +2408,13 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
     if (saveError) {
       setError(saveError.message);
+      setSavingTest(false);
       return;
     }
 
-    for (const question of questions) {
-      const { error: questionSaveError } = await supabase
+    const saveResults = await Promise.all([
+      ...questions.map((question) =>
+        supabase
         .from("compatibility_questions")
         .update({
           prompt: question.prompt,
@@ -2419,33 +2423,33 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           sort_order: question.sort_order,
           active: question.active !== false,
         })
-        .eq("id", question.id);
-
-      if (questionSaveError) {
-        setError(questionSaveError.message);
-        return;
-      }
-
-      for (const option of question.compatibility_options || []) {
-        const { error: optionSaveError } = await supabase
+        .eq("id", question.id)
+      ),
+      ...questions.flatMap((question) =>
+        (question.compatibility_options || []).map((option) =>
+          supabase
           .from("compatibility_options")
           .update({
             label: option.label,
             points: Number(option.points) || 0,
             sort_order: option.sort_order,
           })
-          .eq("id", option.id);
+            .eq("id", option.id)
+        )
+      ),
+    ]);
 
-        if (optionSaveError) {
-          setError(optionSaveError.message);
-          return;
-        }
-      }
+    const failedSave = saveResults.find((result) => result.error);
+    if (failedSave?.error) {
+      setError(failedSave.error.message);
+      setSavingTest(false);
+      return;
     }
 
     setQuizDetails(cleanedDetails);
     setSavedQuizDetails(cleanedDetails);
     setSavedQuestions(cloneQuestions(questions));
+    setSavingTest(false);
     setSaveConfirmed(true);
     setMessage(`Test saved at ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`);
     window.setTimeout(() => setSaveConfirmed(false), 2500);
@@ -2835,7 +2839,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
         {!setupNeeded && tab === "questions" && (
           <div className="animate-soft-in mt-4">
-            <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
+            <div className="mb-4 rounded-lg border border-cyan-300/40 bg-transparent p-3 shadow-[0_0_0_1px_rgba(103,232,249,0.08),0_18px_50px_rgba(0,0,0,0.22)]">
               <div className="grid gap-3 md:grid-cols-[1fr_1.25fr_170px]">
                 <label>
                   <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
@@ -2846,7 +2850,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     onChange={(event) =>
                       setQuizDetails((current) => ({ ...current, title: event.target.value }))
                     }
-                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    className="w-full rounded-md border border-cyan-300/25 bg-black/20 px-3 py-2 text-white"
                     placeholder="Compatibility Test"
                   />
                 </label>
@@ -2862,7 +2866,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         description: event.target.value,
                       }))
                     }
-                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    className="w-full rounded-md border border-cyan-300/25 bg-black/20 px-3 py-2 text-white"
                     placeholder=""
                   />
                 </label>
@@ -2873,7 +2877,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <input
                     value={quizDetails.public_id || "created on save"}
                     readOnly
-                    className="w-full rounded-md border border-white/10 bg-zinc-950/70 px-3 py-2 text-zinc-400"
+                    className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-zinc-400"
                   />
                 </label>
               </div>
@@ -2883,7 +2887,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               {questions.map((question, questionIndex) => (
                 <article
                   key={question.id}
-                  className="animate-soft-in rounded-lg border border-white/10 bg-zinc-950/40 p-3"
+                  className="animate-soft-in rounded-lg border border-cyan-300/25 bg-transparent p-3 shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
                 >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -2898,14 +2902,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                       <button
                         type="button"
                         onClick={() => updateQuestion(question.id, { active: !question.active })}
-                        className={`relative h-7 w-14 rounded-full ${
+                        className={`relative h-4 w-8 rounded-full ${
                           question.active ? "bg-emerald-400" : "bg-red-500"
                         }`}
                         aria-label={question.active ? "Disable question" : "Enable question"}
                       >
                         <span
-                          className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
-                            question.active ? "left-8" : "left-1"
+                          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                            question.active ? "left-[18px]" : "left-0.5"
                           }`}
                         />
                       </button>
@@ -2923,7 +2927,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         onChange={(event) =>
                           updateQuestion(question.id, { prompt: event.target.value })
                         }
-                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                        className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-white"
                       />
                     </label>
                   </div>
@@ -2939,14 +2943,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                           description_enabled: question.description_enabled === false,
                         })
                       }
-                      className={`relative h-7 w-14 rounded-full transition ${
+                      className={`relative h-4 w-8 rounded-full transition ${
                         question.description_enabled !== false ? "bg-emerald-400" : "bg-red-500"
                       }`}
                       aria-label="Toggle description"
                     >
                       <span
-                        className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
-                          question.description_enabled !== false ? "left-8" : "left-1"
+                        className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                          question.description_enabled !== false ? "left-[18px]" : "left-0.5"
                         }`}
                       />
                     </button>
@@ -2960,7 +2964,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                           updateQuestion(question.id, { description: event.target.value })
                         }
                         rows="2"
-                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+                        className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-white"
                       />
                     </label>
                   )}
@@ -2975,14 +2979,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     {(question.compatibility_options || []).map((option) => (
                       <div
                         key={option.id}
-                        className="grid gap-2 rounded-md bg-white/5 p-2 md:grid-cols-[1fr_150px_auto_auto]"
+                        className="grid gap-2 rounded-md border border-white/10 bg-transparent p-2 md:grid-cols-[1fr_150px_auto_auto]"
                       >
                         <input
                           value={option.label}
                           onChange={(event) =>
                             updateOption(question.id, option.id, { label: event.target.value })
                           }
-                          className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                          className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-white"
                         />
                         <input
                           type="number"
@@ -2994,7 +2998,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                               points: Number(event.target.value),
                             })
                           }
-                          className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                          className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-white"
                           aria-label="Points"
                         />
                         <button
@@ -3062,11 +3066,16 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               <button
                 type="button"
                 onClick={saveQuizDetails}
-                className={`rounded-md px-4 py-2 text-sm font-black text-zinc-950 ${
-                  saveConfirmed ? "bg-emerald-300" : "bg-white hover:bg-cyan-100"
+                disabled={savingTest}
+                className={`rounded-md px-4 py-2 text-sm font-black text-zinc-950 disabled:cursor-wait ${
+                  saveConfirmed
+                    ? "bg-emerald-300"
+                    : savingTest
+                      ? "bg-cyan-200"
+                      : "bg-white hover:bg-cyan-100"
                 }`}
               >
-                {saveConfirmed ? "Saved" : "Save Test"}
+                {saveConfirmed ? "Saved" : savingTest ? "Saving..." : "Save Test"}
               </button>
               <button
                 type="button"
@@ -3192,14 +3201,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         short_test_enabled: !current.short_test_enabled,
                       }))
                     }
-                    className={`relative h-8 w-16 rounded-full transition ${
+                    className={`relative h-4 w-8 rounded-full transition ${
                       quizDetails.short_test_enabled ? "bg-emerald-400" : "bg-red-500"
                     }`}
                     aria-label="Toggle short test option"
                   >
                     <span
-                      className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
-                        quizDetails.short_test_enabled ? "left-9" : "left-1"
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                        quizDetails.short_test_enabled ? "left-[18px]" : "left-0.5"
                       }`}
                     />
                   </button>
@@ -3251,14 +3260,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <button
                     type="button"
                     onClick={() => setAdvancedResultsOn((current) => !current)}
-                    className={`relative h-8 w-16 rounded-full transition ${
+                    className={`relative h-4 w-8 rounded-full transition ${
                       advancedResultsOn ? "bg-emerald-400" : "bg-red-500"
                     }`}
                     aria-label="Toggle custom result margins"
                   >
                     <span
-                      className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
-                        advancedResultsOn ? "left-9" : "left-1"
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                        advancedResultsOn ? "left-[18px]" : "left-0.5"
                       }`}
                     />
                   </button>
@@ -3413,7 +3422,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 function SiteFooter() {
   return (
     <footer className="fixed bottom-3 left-0 right-0 z-10 pointer-events-none px-5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">
-      Copyright 2026 The FINE Test
+      Copyright 2026 thefinetest (TM) Brian Inc.
     </footer>
   );
 }
