@@ -1217,12 +1217,25 @@ function LoginPage({ navigate, isLanding = false }) {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const isPasswordRecovery = window.location.hash.includes("type=recovery");
+
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
+      if (isPasswordRecovery) {
+        setMode("reset");
+      } else if (data.session) {
         navigate("dashboard", true);
       }
       setLoading(false);
     });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("reset");
+        setLoading(false);
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, [navigate]);
 
   const submit = async (event) => {
@@ -1232,18 +1245,25 @@ function LoginPage({ navigate, isLanding = false }) {
     setMessage("");
 
     const result =
-      mode === "signin"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: `${window.location.origin}/dashboard`,
-            },
-          });
+      mode === "reset"
+        ? await supabase.auth.updateUser({ password })
+        : mode === "signin"
+          ? await supabase.auth.signInWithPassword({ email, password })
+          : await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: `${window.location.origin}/dashboard`,
+              },
+            });
 
     if (result.error) {
       setError(result.error.message);
+    } else if (mode === "reset") {
+      setMessage("Password updated. You can sign in with the new password now.");
+      setMode("signin");
+      setPassword("");
+      await supabase.auth.signOut();
     } else if (mode === "signup") {
       setMessage("Account created. Check your email if Supabase asks for confirmation.");
     } else {
@@ -1266,9 +1286,35 @@ function LoginPage({ navigate, isLanding = false }) {
     });
 
     if (socialError) {
-      setError(socialError.message);
+      setError(
+        socialError.message.toLowerCase().includes("provider")
+          ? `${provider === "google" ? "Google" : "Facebook"} login is not enabled in Supabase yet. Enable the provider in Supabase Auth, then this button will work.`
+          : socialError.message
+      );
       setBusy(false);
     }
+  };
+
+  const sendPasswordReset = async () => {
+    setError("");
+    setMessage("");
+
+    if (!email.trim()) {
+      setError("Enter your email first, then hit forgot password.");
+      return;
+    }
+
+    setBusy(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login`,
+    });
+
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setMessage("Password reset email sent. Check your inbox.");
+    }
+    setBusy(false);
   };
 
   if (loading) {
@@ -1281,18 +1327,20 @@ function LoginPage({ navigate, isLanding = false }) {
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
-          {mode === "signin" ? "Coming back?" : "New here?"}
+          {mode === "reset" ? "Reset password" : mode === "signin" ? "Coming back?" : "New here?"}
         </p>
         <h1 className="mt-4 text-4xl font-black text-white">
-          {mode === "signin" ? "Sign in" : "Sign up"}
+          {mode === "reset" ? "New password" : mode === "signin" ? "Sign in" : "Sign up"}
         </h1>
         <p className="mt-3 leading-7 text-zinc-300">
-          {mode === "signin"
-            ? "Log in to manage your tests, saves, and settings."
-            : "Create an account to build tests and collect results."}
+          {mode === "reset"
+            ? "Choose a new password for your account."
+            : mode === "signin"
+              ? "Log in to manage your tests, saves, and settings."
+              : "Create an account to build tests and collect results."}
         </p>
 
-        <div className="mt-6 grid grid-cols-2 rounded-full bg-white/5 p-1">
+        {mode !== "reset" && <div className="mt-6 grid grid-cols-2 rounded-full bg-white/5 p-1">
           <button
             type="button"
             onClick={() => setMode("signin")}
@@ -1311,9 +1359,9 @@ function LoginPage({ navigate, isLanding = false }) {
           >
             Sign up
           </button>
-        </div>
+        </div>}
 
-        <div className="mt-6 grid gap-3">
+        {mode !== "reset" && <div className="mt-6 grid gap-3">
           <button
             type="button"
             onClick={() => socialLogin("google")}
@@ -1330,13 +1378,13 @@ function LoginPage({ navigate, isLanding = false }) {
           >
             Continue with Facebook
           </button>
-        </div>
+        </div>}
 
-        <div className="my-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+        {mode !== "reset" && <div className="my-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
           <span className="h-px flex-1 bg-white/10" />
           or
           <span className="h-px flex-1 bg-white/10" />
-        </div>
+        </div>}
 
         {error && (
           <div className="mb-4 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
@@ -1350,20 +1398,20 @@ function LoginPage({ navigate, isLanding = false }) {
         )}
 
         <form onSubmit={submit} className="grid gap-4">
-          <input
+          {mode !== "reset" && <input
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
             placeholder="Email"
             required
-          />
+          />}
           <input
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-            placeholder="Password"
+            placeholder={mode === "reset" ? "New password" : "Password"}
             required
           />
           <button
@@ -1371,12 +1419,29 @@ function LoginPage({ navigate, isLanding = false }) {
             disabled={busy}
             className="rounded-md bg-cyan-300 px-6 py-3 font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
           >
-            {busy ? "One sec..." : mode === "signin" ? "Sign In" : "Create Account"}
+            {busy
+              ? "One sec..."
+              : mode === "reset"
+                ? "Update Password"
+                : mode === "signin"
+                  ? "Sign In"
+                  : "Create Account"}
           </button>
         </form>
 
+        {mode === "signin" && (
+          <button
+            type="button"
+            onClick={sendPasswordReset}
+            disabled={busy}
+            className="mt-4 text-sm font-black text-cyan-200 underline-offset-4 hover:underline disabled:opacity-60"
+          >
+            Forgot password?
+          </button>
+        )}
+
         <p className="mt-5 text-sm leading-6 text-zinc-400">
-          Google and Facebook must be enabled in Supabase before those buttons work.
+          Google and Facebook require Supabase Auth provider setup before those buttons work.
         </p>
       </section>
     </main>
@@ -1387,6 +1452,9 @@ function SettingsPage({ navigate }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -1405,6 +1473,35 @@ function SettingsPage({ navigate }) {
     });
   }, [navigate]);
 
+  useEffect(() => {
+    const nextUsername = normalizeUsername(username);
+    setUsernameStatus("");
+
+    if (!session || !nextUsername || nextUsername === profile?.username) return;
+    if (!USERNAME_PATTERN.test(nextUsername)) {
+      setUsernameStatus("Use 3-24 lowercase letters, numbers, or underscores.");
+      return;
+    }
+
+    const checkUsername = window.setTimeout(async () => {
+      const { data, error: checkError } = await supabase
+        .from("compatibility_profiles")
+        .select("user_id")
+        .eq("username", nextUsername)
+        .maybeSingle();
+
+      if (checkError) {
+        setUsernameStatus("");
+      } else if (data && data.user_id !== session.user.id) {
+        setUsernameStatus("Username taken.");
+      } else {
+        setUsernameStatus("Username available.");
+      }
+    }, 350);
+
+    return () => window.clearTimeout(checkUsername);
+  }, [username, profile?.username, session]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate("landing", true);
@@ -1417,6 +1514,18 @@ function SettingsPage({ navigate }) {
     const nextUsername = normalizeUsername(username);
     if (!USERNAME_PATTERN.test(nextUsername)) {
       setError("Use 3-24 characters: lowercase letters, numbers, and underscores only.");
+      return;
+    }
+
+    const { data: existingUsername } = await supabase
+      .from("compatibility_profiles")
+      .select("user_id")
+      .eq("username", nextUsername)
+      .maybeSingle();
+
+    if (existingUsername && existingUsername.user_id !== session.user.id) {
+      setError("That username is already taken.");
+      setUsernameStatus("Username taken.");
       return;
     }
 
@@ -1442,7 +1551,29 @@ function SettingsPage({ navigate }) {
 
     setProfile(data);
     setUsername(data.username);
+    setUsernameStatus("Username saved.");
     setMessage("Username saved.");
+  };
+
+  const deleteAccount = async () => {
+    setError("");
+    setMessage("");
+    setDeleting(true);
+
+    const { error: deleteError } = await supabase.rpc("delete_current_user");
+
+    if (deleteError) {
+      setError(
+        deleteError.message.includes("function")
+          ? "Account deletion needs the newest Supabase SQL setup first."
+          : deleteError.message
+      );
+      setDeleting(false);
+      return;
+    }
+
+    await supabase.auth.signOut();
+    navigate("landing", true);
   };
 
   if (loading) {
@@ -1483,6 +1614,17 @@ function SettingsPage({ navigate }) {
                   className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
                   placeholder="username"
                 />
+                {usernameStatus && (
+                  <span
+                    className={`mt-2 block text-sm font-bold ${
+                      usernameStatus.includes("available") || usernameStatus.includes("saved")
+                        ? "text-emerald-300"
+                        : "text-cyan-200"
+                    }`}
+                  >
+                    {usernameStatus}
+                  </span>
+                )}
               </label>
               <button
                 type="button"
@@ -1499,23 +1641,51 @@ function SettingsPage({ navigate }) {
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h2 className="text-xl font-black text-white">Legal Information</h2>
             <p className="mt-2 leading-7 text-zinc-300">
-              Privacy, terms, and data handling pages will live here before this becomes a real
-              public account system.
+              The FINE Test stores account details, quiz content, and compatibility results so
+              users can manage their own tests. Do not submit sensitive personal information.
+              User-created quiz text belongs to the user who created it.
+            </p>
+            <p className="mt-3 leading-7 text-zinc-300">
+              Copyright 2026 The FINE Test. All rights reserved. The site design, scoring tools,
+              and original interface content may not be copied or republished without permission.
             </p>
           </div>
 
           <div className="rounded-lg border border-cyan-300/20 bg-cyan-950/20 p-4">
             <h2 className="text-xl font-black text-white">Delete My Account</h2>
             <p className="mt-2 leading-7 text-zinc-300">
-              This needs a secure backend action before it can be safely enabled.
+              This permanently deletes your account, profile, tests, questions, and collected
+              results. This cannot be undone.
             </p>
-            <button
-              type="button"
-              disabled
-              className="mt-4 rounded-md border border-cyan-300/20 px-4 py-2 font-black text-cyan-200 opacity-60"
-            >
-              Coming Soon
-            </button>
+            {!deleteConfirm ? (
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(true)}
+                className="mt-4 rounded-md border border-red-400/40 px-4 py-2 font-black text-red-200 hover:bg-red-950/40"
+              >
+                Delete My Account
+              </button>
+            ) : (
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 p-3">
+                <span className="text-sm font-bold text-red-100">Are you sure?</span>
+                <button
+                  type="button"
+                  onClick={deleteAccount}
+                  disabled={deleting}
+                  className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950 disabled:opacity-60"
+                >
+                  {deleting ? "Deleting..." : "Yes, Delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1867,6 +2037,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
   const [editorReady, setEditorReady] = useState(false);
+  const [saveConfirmed, setSaveConfirmed] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [confirmClearQuestions, setConfirmClearQuestions] = useState(false);
   const [message, setMessage] = useState("");
@@ -2203,6 +2374,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const saveQuizDetails = async () => {
     setError("");
     setMessage("");
+    setSaveConfirmed(false);
 
     const nextTestId = TEST_ID_PATTERN.test(quizDetails.public_id)
       ? quizDetails.public_id
@@ -2273,7 +2445,9 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setQuizDetails(cleanedDetails);
     setSavedQuizDetails(cleanedDetails);
     setSavedQuestions(cloneQuestions(questions));
-    setMessage("Test saved.");
+    setSaveConfirmed(true);
+    setMessage(`Test saved at ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`);
+    window.setTimeout(() => setSaveConfirmed(false), 2500);
   };
 
   const discardQuizDetails = () => {
@@ -2887,9 +3061,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               <button
                 type="button"
                 onClick={saveQuizDetails}
-                className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 hover:bg-cyan-100"
+                className={`rounded-md px-4 py-2 text-sm font-black text-zinc-950 ${
+                  saveConfirmed ? "bg-emerald-300" : "bg-white hover:bg-cyan-100"
+                }`}
               >
-                Save Test
+                {saveConfirmed ? "Saved" : "Save Test"}
               </button>
               <button
                 type="button"

@@ -393,6 +393,21 @@ for delete
 to authenticated
 using (auth.uid() = owner_id);
 
+create or replace function public.delete_current_user()
+returns void
+language plpgsql
+security definer
+set search_path = auth, public
+as $$
+begin
+  delete from auth.users
+  where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_current_user() from public;
+grant execute on function public.delete_current_user() to authenticated;
+
 insert into public.compatibility_result_bands (min_percent, max_percent, title, message, sort_order)
 select *
 from (
