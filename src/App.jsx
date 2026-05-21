@@ -2023,6 +2023,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
   const addQuestion = async (template = null) => {
     setError("");
+    if (!activeTest?.id) {
+      setError("The test is still loading. Try again in a second.");
+      return;
+    }
+
     const nextOrder = questions.length + 1;
     const { data, error: insertError } = await supabase
       .from("compatibility_questions")
@@ -2050,17 +2055,37 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         ["Bad answer", 0],
       ];
 
-    await supabase.from("compatibility_options").insert(
-      answers.map(([label, points], index) => ({
-        question_id: data.id,
-        label,
-        points,
-        sort_order: index + 1,
-      }))
-    );
+    const { data: optionData, error: optionInsertError } = await supabase
+      .from("compatibility_options")
+      .insert(
+        answers.map(([label, points], index) => ({
+          question_id: data.id,
+          label,
+          points,
+          sort_order: index + 1,
+        }))
+      )
+      .select("id,label,points,sort_order");
+
+    if (optionInsertError) {
+      await supabase.from("compatibility_questions").delete().eq("id", data.id);
+      setError(optionInsertError.message);
+      return;
+    }
+
+    const nextQuestion = {
+      id: data.id,
+      prompt: template?.prompt || "New question",
+      description: template?.description || "",
+      description_enabled: Boolean(template?.description),
+      sort_order: nextOrder,
+      active: true,
+      compatibility_options: optionData || [],
+    };
 
     setMessage(template ? "Random question added." : "Question added.");
-    loadAdminData();
+    setQuestions((current) => [...current, nextQuestion]);
+    setSavedQuestions((current) => [...current, cloneQuestions([nextQuestion])[0]]);
   };
 
   const addRandomQuestion = () => {
@@ -2118,6 +2143,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     }
 
     setQuestions((current) => current.filter((question) => question.id !== id));
+    setSavedQuestions((current) => current.filter((question) => question.id !== id));
+    setMessage("Question deleted.");
   };
 
   const clearAllQuestions = async () => {
@@ -2133,6 +2160,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     }
 
     setQuestions([]);
+    setSavedQuestions([]);
     setConfirmClearQuestions(false);
     setMessage("All questions cleared.");
   };
@@ -2272,19 +2300,43 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
   const addOption = async (question) => {
     const nextOrder = (question.compatibility_options || []).length + 1;
-    const { error: insertError } = await supabase.from("compatibility_options").insert({
-      question_id: question.id,
-      label: "New answer",
-      points: 0,
-      sort_order: nextOrder,
-    });
+    const { data, error: insertError } = await supabase
+      .from("compatibility_options")
+      .insert({
+        question_id: question.id,
+        label: "New answer",
+        points: 0,
+        sort_order: nextOrder,
+      })
+      .select("id,label,points,sort_order")
+      .single();
 
     if (insertError) {
       setError(insertError.message);
       return;
     }
 
-    loadAdminData();
+    setQuestions((current) =>
+      current.map((item) =>
+        item.id === question.id
+          ? {
+              ...item,
+              compatibility_options: [...(item.compatibility_options || []), data],
+            }
+          : item
+      )
+    );
+    setSavedQuestions((current) =>
+      current.map((item) =>
+        item.id === question.id
+          ? {
+              ...item,
+              compatibility_options: [...(item.compatibility_options || []), { ...data }],
+            }
+          : item
+      )
+    );
+    setMessage("Answer added.");
   };
 
   const deleteOption = async (optionId) => {
@@ -2298,7 +2350,23 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       return;
     }
 
-    loadAdminData();
+    setQuestions((current) =>
+      current.map((question) => ({
+        ...question,
+        compatibility_options: (question.compatibility_options || []).filter(
+          (option) => option.id !== optionId
+        ),
+      }))
+    );
+    setSavedQuestions((current) =>
+      current.map((question) => ({
+        ...question,
+        compatibility_options: (question.compatibility_options || []).filter(
+          (option) => option.id !== optionId
+        ),
+      }))
+    );
+    setMessage("Answer deleted.");
   };
 
   const updateResultBand = (id, changes) => {
