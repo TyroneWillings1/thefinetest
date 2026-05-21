@@ -1618,12 +1618,13 @@ function SettingsPage({ navigate }) {
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h2 className="text-xl font-black text-white">Username</h2>
             <p className="mt-2 leading-7 text-zinc-300">
-              Your public test link will use this username.
+              Your username is saved to your account for identity and future profile features.
+              Share links currently use short test IDs.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
               <label>
                 <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
-                  thefinetest.com/@{username || "username"}/test
+                  Account username
                 </span>
                 <input
                   value={username}
