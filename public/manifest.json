@@ -1,15 +1,20 @@
 {
-  "short_name": "F.I.N.E. Test",
-  "name": "The F.I.N.E. Test — Figure, Intelligence, Nature, Energy",
+  "short_name": "thefinetest",
+  "name": "thefinetest Compatibility Quizzes",
   "icons": [
     {
       "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "apple-touch-icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#050505",
+  "background_color": "#050505"
 }
