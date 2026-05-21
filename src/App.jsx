@@ -872,6 +872,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const isInviteLink = Boolean(sharedTest.testId);
 
   useEffect(() => {
     setUseAdvancedResults(advancedResultsEnabled());
@@ -1042,7 +1043,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-12">
-      <BackButton onClick={() => navigate("dashboard")} />
+      {!isInviteLink && <BackButton onClick={() => navigate("dashboard")} />}
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
