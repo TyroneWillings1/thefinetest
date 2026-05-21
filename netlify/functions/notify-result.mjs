@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://cwchbeqfhxdsumbrtgen.supabase.co";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function env(name) {
-  return Netlify.env.get(name);
+  return Netlify.env.get(name) || globalThis.process?.env?.[name] || "";
 }
 
 function json(body, status = 200) {
