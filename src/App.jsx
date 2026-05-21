@@ -1723,6 +1723,7 @@ function TestManager({ navigate, navigateToPath }) {
   const [tests, setTests] = useState([]);
   const [questionCounts, setQuestionCounts] = useState({});
   const [submissions, setSubmissions] = useState([]);
+  const [expandedSubmissionIds, setExpandedSubmissionIds] = useState([]);
   const [mode, setMode] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1854,6 +1855,12 @@ function TestManager({ navigate, navigateToPath }) {
     setTests((current) => current.filter((item) => item.id !== test.id));
     setSubmissions((current) => current.filter((submission) => submission.test_id !== test.id));
     setMessage("Test deleted.");
+  };
+
+  const toggleSubmissionAnswers = (id) => {
+    setExpandedSubmissionIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
   };
 
   if (loading) {
@@ -1996,7 +2003,11 @@ function TestManager({ navigate, navigateToPath }) {
               </p>
             )}
 
-            {visibleSubmissions.map((submission) => (
+            {visibleSubmissions.map((submission) => {
+              const answersExpanded = expandedSubmissionIds.includes(submission.id);
+              const answerCount = submission.compatibility_answers?.length || 0;
+
+              return (
               <article key={submission.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -2013,21 +2024,32 @@ function TestManager({ navigate, navigateToPath }) {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2">
-                  {(submission.compatibility_answers || []).map((answer) => (
-                    <div
-                      key={`${submission.id}-${answer.question_prompt}`}
-                      className="rounded-md bg-zinc-950/70 p-3"
-                    >
-                      <p className="font-bold text-zinc-200">{answer.question_prompt}</p>
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {answer.option_label} ({answer.points} pts)
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleSubmissionAnswers(submission.id)}
+                  className="mt-4 rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                >
+                  {answersExpanded ? "Hide Answers" : `Show Answers (${answerCount})`}
+                </button>
+
+                {answersExpanded && (
+                  <div className="animate-soft-in mt-4 grid gap-2">
+                    {(submission.compatibility_answers || []).map((answer) => (
+                      <div
+                        key={`${submission.id}-${answer.question_prompt}`}
+                        className="rounded-md bg-zinc-950/70 p-3"
+                      >
+                        <p className="font-bold text-zinc-200">{answer.question_prompt}</p>
+                        <p className="mt-1 text-sm text-zinc-400">
+                          {answer.option_label} ({answer.points} pts)
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -2051,6 +2073,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [activeTest, setActiveTest] = useState(null);
   const [profile, setProfile] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [expandedSubmissionIds, setExpandedSubmissionIds] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
   const [editorReady, setEditorReady] = useState(false);
@@ -2733,6 +2756,13 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     }
 
     setSubmissions((current) => current.filter((submission) => submission.id !== id));
+    setExpandedSubmissionIds((current) => current.filter((submissionId) => submissionId !== id));
+  };
+
+  const toggleSubmissionAnswers = (id) => {
+    setExpandedSubmissionIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
   };
 
   const sortedResultMargins = [...resultBands].sort(
@@ -3189,7 +3219,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         {!setupNeeded && tab === "results" && (
           <div className="mt-8 grid gap-4">
             {submissions.length === 0 && <p className="text-zinc-300">No submissions yet.</p>}
-            {submissions.map((submission) => (
+            {submissions.map((submission) => {
+              const answersExpanded = expandedSubmissionIds.includes(submission.id);
+              const answerCount = submission.compatibility_answers?.length || 0;
+
+              return (
               <article key={submission.id} className="rounded-lg border border-white/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -3206,26 +3240,38 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => deleteSubmission(submission.id)}
-                  className="mt-4 rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
-                >
-                  Delete Result
-                </button>
-
-                <div className="mt-4 grid gap-2">
-                  {(submission.compatibility_answers || []).map((answer) => (
-                    <div key={`${submission.id}-${answer.question_prompt}`} className="rounded-md bg-white/5 p-3">
-                      <p className="font-bold text-zinc-200">{answer.question_prompt}</p>
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {answer.option_label} ({answer.points} pts)
-                      </p>
-                    </div>
-                  ))}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleSubmissionAnswers(submission.id)}
+                    className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                  >
+                    {answersExpanded ? "Hide Answers" : `Show Answers (${answerCount})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteSubmission(submission.id)}
+                    className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                  >
+                    Delete Result
+                  </button>
                 </div>
+
+                {answersExpanded && (
+                  <div className="animate-soft-in mt-4 grid gap-2">
+                    {(submission.compatibility_answers || []).map((answer) => (
+                      <div key={`${submission.id}-${answer.question_prompt}`} className="rounded-md bg-white/5 p-3">
+                        <p className="font-bold text-zinc-200">{answer.question_prompt}</p>
+                        <p className="mt-1 text-sm text-zinc-400">
+                          {answer.option_label} ({answer.points} pts)
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
 
