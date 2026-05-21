@@ -199,12 +199,16 @@ export default async (request) => {
     }
 
     const [test] = await getRows(
-      `compatibility_tests?id=eq.${submission.test_id}&select=id,title,public_id,owner_id`,
+      `compatibility_tests?id=eq.${submission.test_id}&select=id,title,public_id,owner_id,email_notifications_enabled`,
       serviceRoleKey
     );
 
     if (!test) {
       return json({ error: "Test not found." }, 404);
+    }
+
+    if (test.email_notifications_enabled !== true) {
+      return json({ ok: true, skipped: true, reason: "Email notifications are disabled for this test." });
     }
 
     const [answers, ownerEmail] = await Promise.all([

@@ -48,6 +48,7 @@ const DEFAULT_QUIZ_DETAILS = {
   title: "Compatibility Test",
   description: "",
   public_id: "",
+  email_notifications_enabled: false,
   short_test_enabled: false,
   short_question_count: 10,
 };
@@ -435,6 +436,7 @@ function getQuizDetailsValue(settingData) {
     title: value.title || DEFAULT_QUIZ_DETAILS.title,
     description: value.description || DEFAULT_QUIZ_DETAILS.description,
     public_id: value.public_id || DEFAULT_QUIZ_DETAILS.public_id,
+    email_notifications_enabled: value.email_notifications_enabled === true,
     short_test_enabled: value.short_test_enabled === true,
     short_question_count: Number(
       value.short_question_count || DEFAULT_QUIZ_DETAILS.short_question_count
@@ -483,6 +485,7 @@ async function createCompatibilityTest(user, details = DEFAULT_QUIZ_DETAILS) {
       public_id: publicId,
       title: details.title || DEFAULT_QUIZ_DETAILS.title,
       description: details.description || "",
+      email_notifications_enabled: details.email_notifications_enabled === true,
       short_test_enabled: details.short_test_enabled === true,
       short_question_count:
         Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count,
@@ -2399,6 +2402,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
       description: quizDetails.description.trim(),
       public_id: nextTestId,
+      email_notifications_enabled: quizDetails.email_notifications_enabled === true,
       short_test_enabled: quizDetails.short_test_enabled === true,
       short_question_count: Math.max(
         1,
@@ -2412,6 +2416,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         public_id: cleanedDetails.public_id,
         title: cleanedDetails.title,
         description: cleanedDetails.description,
+        email_notifications_enabled: cleanedDetails.email_notifications_enabled,
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
         updated_at: new Date().toISOString(),
@@ -2486,6 +2491,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           public_id: nextTestId,
           title: details.title.trim() || DEFAULT_QUIZ_DETAILS.title,
           description: details.description.trim(),
+          email_notifications_enabled: details.email_notifications_enabled === true,
           short_test_enabled: details.short_test_enabled === true,
           short_question_count: Math.max(
             1,
@@ -2641,6 +2647,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       ...quizDetails,
       title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
       description: quizDetails.description.trim(),
+      email_notifications_enabled: quizDetails.email_notifications_enabled === true,
       short_test_enabled: quizDetails.short_test_enabled === true,
       short_question_count: Math.max(
         1,
@@ -2654,6 +2661,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         advanced_results_enabled: advancedResultsOn,
         title: cleanedDetails.title,
         description: cleanedDetails.description,
+        email_notifications_enabled: cleanedDetails.email_notifications_enabled,
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
         updated_at: new Date().toISOString(),
@@ -2892,6 +2900,38 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     readOnly
                     className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-zinc-400"
                   />
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2">
+                <div>
+                  <p className="text-sm font-black text-white">
+                    Receive email notifications about results?
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Sends an email when someone submits this quiz.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm font-bold text-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuizDetails((current) => ({
+                        ...current,
+                        email_notifications_enabled: !current.email_notifications_enabled,
+                      }))
+                    }
+                    className={`relative h-4 w-8 rounded-full transition ${
+                      quizDetails.email_notifications_enabled ? "bg-emerald-400" : "bg-red-500"
+                    }`}
+                    aria-label="Toggle email notifications for this quiz"
+                  >
+                    <span
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                        quizDetails.email_notifications_enabled ? "left-[18px]" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                  {quizDetails.email_notifications_enabled ? "Enabled" : "Disabled"}
                 </label>
               </div>
             </div>

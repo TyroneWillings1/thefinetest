@@ -83,6 +83,7 @@ create table if not exists public.compatibility_tests (
   public_id text unique not null,
   title text not null default 'Compatibility Test',
   description text default '',
+  email_notifications_enabled boolean not null default false,
   short_test_enabled boolean not null default false,
   short_question_count integer not null default 10,
   advanced_results_enabled boolean not null default false,
@@ -98,6 +99,9 @@ add column if not exists test_id uuid references public.compatibility_tests(id) 
 
 alter table public.compatibility_submissions
 add column if not exists test_id uuid references public.compatibility_tests(id) on delete cascade;
+
+alter table public.compatibility_tests
+add column if not exists email_notifications_enabled boolean not null default false;
 
 do $$
 declare
