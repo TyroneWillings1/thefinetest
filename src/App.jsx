@@ -42,6 +42,7 @@ const routes = {
 
 const ADVANCED_RESULTS_KEY = "fine_test_advanced_results_enabled";
 const SELECTED_TEST_KEY = "fine_test_selected_test_id";
+const TEST_DRAFT_KEY_PREFIX = "fine_test_editor_draft_";
 
 const DEFAULT_QUIZ_DETAILS = {
   title: "Compatibility Test",
@@ -443,6 +444,10 @@ function getQuizDetailsValue(settingData) {
 
 function settingsByKey(settings = []) {
   return settings.reduce((all, item) => ({ ...all, [item.key]: item }), {});
+}
+
+function getTestDraftKey(testId) {
+  return `${TEST_DRAFT_KEY_PREFIX}${testId}`;
 }
 
 function normalizeUsername(value = "") {
@@ -1861,6 +1866,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [submissions, setSubmissions] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
+  const [editorReady, setEditorReady] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [confirmClearQuestions, setConfirmClearQuestions] = useState(false);
   const [message, setMessage] = useState("");
@@ -1884,7 +1890,20 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     if (session) {
       loadAdminData();
     }
-  }, [session, adminTest.testId]);
+  }, [session?.user?.id, adminTest.testId]);
+
+  useEffect(() => {
+    if (!activeTest?.id || !editorReady || setupNeeded || loading) return;
+
+    window.localStorage.setItem(
+      getTestDraftKey(activeTest.id),
+      JSON.stringify({
+        quizDetails,
+        questions,
+        updatedAt: new Date().toISOString(),
+      })
+    );
+  }, [activeTest?.id, quizDetails, questions, editorReady, setupNeeded, loading]);
 
   useEffect(() => {
     if (!loading && !session) {
@@ -1896,6 +1915,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setError("");
     setMessage("");
     setSetupNeeded(false);
+    setEditorReady(false);
 
     const { data: testRows, error: testsError } = await supabase
       .from("compatibility_tests")
@@ -1920,6 +1940,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       setQuestions([]);
       setSubmissions([]);
       setResultBands([]);
+      setEditorReady(false);
       return;
     }
 
@@ -1977,7 +1998,22 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     }
 
     const loadedQuestions = cloneQuestions(questionData || []);
-    setQuestions(loadedQuestions);
+    const advancedEnabled = currentTest.advanced_results_enabled === true;
+    const loadedQuizDetails = getQuizDetailsValue(currentTest);
+    let draft = null;
+
+    try {
+      draft = JSON.parse(window.localStorage.getItem(getTestDraftKey(currentTest.id)) || "null");
+    } catch {
+      draft = null;
+    }
+
+    const draftQuestions = Array.isArray(draft?.questions) ? cloneQuestions(draft.questions) : null;
+    const draftQuizDetails = draft?.quizDetails
+      ? getQuizDetailsValue(draft.quizDetails)
+      : null;
+
+    setQuestions(draftQuestions || loadedQuestions);
     setSavedQuestions(cloneQuestions(loadedQuestions));
     setSubmissions(submissionData || []);
     let loadedBands = bandData || [];
@@ -1993,13 +2029,12 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setResultBands(loadedBands);
     setSavedResultBands(loadedBands);
     setDeletedResultBandIds([]);
-    const advancedEnabled = currentTest.advanced_results_enabled === true;
-    const loadedQuizDetails = getQuizDetailsValue(currentTest);
     setAdvancedResultsOn(advancedEnabled);
     setSavedAdvancedResultsOn(advancedEnabled);
-    setQuizDetails(loadedQuizDetails);
+    setQuizDetails(draftQuizDetails || loadedQuizDetails);
     setSavedQuizDetails(loadedQuizDetails);
     window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedEnabled));
+    setEditorReady(true);
 
     const loadedProfile = await ensureUserProfile(session.user);
     setProfile(loadedProfile);
