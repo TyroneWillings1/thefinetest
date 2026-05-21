@@ -458,6 +458,18 @@ function createTestId() {
   return Math.random().toString(36).replace(/[^a-z0-9]/g, "").slice(2, 8);
 }
 
+async function notifyResultSubmission(submissionId) {
+  try {
+    await fetch("/api/notify-result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ submissionId }),
+    });
+  } catch (error) {
+    console.warn("Result notification could not be sent.", error);
+  }
+}
+
 function resultMarginRows(testId) {
   return fallbackResultBands.map(({ id, ...band }) => ({ ...band, test_id: testId }));
 }
@@ -1036,6 +1048,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
       setError("Your score saved, but answer details did not save.");
     } else {
       setResult(totals);
+      notifyResultSubmission(submissionId);
     }
 
     setSaving(false);

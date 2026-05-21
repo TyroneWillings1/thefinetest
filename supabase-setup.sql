@@ -38,6 +38,9 @@ create table if not exists public.compatibility_submissions (
 alter table public.compatibility_submissions
 add column if not exists result_message text default '';
 
+alter table public.compatibility_submissions
+add column if not exists notification_sent_at timestamptz;
+
 create table if not exists public.compatibility_answers (
   id uuid primary key default gen_random_uuid(),
   submission_id uuid not null references public.compatibility_submissions(id) on delete cascade,
