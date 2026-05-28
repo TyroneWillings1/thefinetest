@@ -1776,7 +1776,7 @@ function TestManager({ navigate, navigateToPath }) {
     const testIds = (testRows || []).map((test) => test.id);
     const { data: submissionData, error: submissionError } = await supabase
       .from("compatibility_submissions")
-      .select("id,test_id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
+      .select("id,test_id,name,score,max_score,percent,result_tier,result_message,owner_note,created_at,compatibility_answers(question_prompt,option_label,points)")
       .order("created_at", { ascending: false });
 
     if (submissionError) {
@@ -1875,6 +1875,32 @@ function TestManager({ navigate, navigateToPath }) {
     setSubmissions((current) => current.filter((submission) => submission.id !== id));
     setExpandedSubmissionIds((current) => current.filter((submissionId) => submissionId !== id));
     setMessage("Result deleted.");
+  };
+
+  const updateSubmissionNote = (id, note) => {
+    setSubmissions((current) =>
+      current.map((submission) =>
+        submission.id === id ? { ...submission, owner_note: note } : submission
+      )
+    );
+  };
+
+  const saveSubmissionNote = async (id, note) => {
+    setError("");
+    setMessage("");
+
+    const { error: noteError } = await supabase
+      .from("compatibility_submissions")
+      .update({ owner_note: note.trim() })
+      .eq("id", id);
+
+    if (noteError) {
+      setError(noteError.message);
+      return;
+    }
+
+    updateSubmissionNote(id, note.trim());
+    setMessage("Result note saved.");
   };
 
   const toggleSubmissionAnswers = (id) => {
@@ -2042,6 +2068,27 @@ function TestManager({ navigate, navigateToPath }) {
                     <p className="text-3xl font-black">{submission.percent}%</p>
                     <p className="text-sm font-black text-cyan-600">{submission.result_tier}</p>
                   </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <label>
+                    <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                      Private note
+                    </span>
+                    <input
+                      value={submission.owner_note || ""}
+                      onChange={(event) => updateSubmissionNote(submission.id, event.target.value)}
+                      className="w-full rounded-md border border-white/10 bg-zinc-950/70 px-3 py-2 text-sm text-white"
+                      placeholder="Add a note about who this might be..."
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => saveSubmissionNote(submission.id, submission.owner_note || "")}
+                    className="self-end rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-cyan-300 hover:text-cyan-200"
+                  >
+                    Save Note
+                  </button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -2214,7 +2261,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
         supabase
           .from("compatibility_submissions")
-          .select("id,name,score,max_score,percent,result_tier,result_message,created_at,compatibility_answers(question_prompt,option_label,points)")
+          .select("id,name,score,max_score,percent,result_tier,result_message,owner_note,created_at,compatibility_answers(question_prompt,option_label,points)")
           .eq("test_id", currentTest.id)
           .order("created_at", { ascending: false }),
         supabase
@@ -2788,6 +2835,32 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setExpandedSubmissionIds((current) => current.filter((submissionId) => submissionId !== id));
   };
 
+  const updateSubmissionNote = (id, note) => {
+    setSubmissions((current) =>
+      current.map((submission) =>
+        submission.id === id ? { ...submission, owner_note: note } : submission
+      )
+    );
+  };
+
+  const saveSubmissionNote = async (id, note) => {
+    setError("");
+    setMessage("");
+
+    const { error: noteError } = await supabase
+      .from("compatibility_submissions")
+      .update({ owner_note: note.trim() })
+      .eq("id", id);
+
+    if (noteError) {
+      setError(noteError.message);
+      return;
+    }
+
+    updateSubmissionNote(id, note.trim());
+    setMessage("Result note saved.");
+  };
+
   const toggleSubmissionAnswers = (id) => {
     setExpandedSubmissionIds((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
@@ -3267,6 +3340,27 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     <p className="text-3xl font-black">{submission.percent}%</p>
                     <p className="text-sm font-black text-cyan-600">{submission.result_tier}</p>
                   </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <label>
+                    <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                      Private note
+                    </span>
+                    <input
+                      value={submission.owner_note || ""}
+                      onChange={(event) => updateSubmissionNote(submission.id, event.target.value)}
+                      className="w-full rounded-md border border-white/10 bg-zinc-950/70 px-3 py-2 text-sm text-white"
+                      placeholder="Add a note about who this might be..."
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => saveSubmissionNote(submission.id, submission.owner_note || "")}
+                    className="self-end rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-cyan-300 hover:text-cyan-200"
+                  >
+                    Save Note
+                  </button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">

@@ -32,6 +32,7 @@ create table if not exists public.compatibility_submissions (
   percent integer not null default 0,
   result_tier text not null default '',
   result_message text default '',
+  owner_note text default '',
   created_at timestamptz not null default now()
 );
 
@@ -40,6 +41,9 @@ add column if not exists result_message text default '';
 
 alter table public.compatibility_submissions
 add column if not exists notification_sent_at timestamptz;
+
+alter table public.compatibility_submissions
+add column if not exists owner_note text default '';
 
 create table if not exists public.compatibility_answers (
   id uuid primary key default gen_random_uuid(),
@@ -271,6 +275,26 @@ on public.compatibility_submissions
 for delete
 to authenticated
 using (
+  exists (
+    select 1 from public.compatibility_tests t
+    where t.id = compatibility_submissions.test_id
+      and t.owner_id = auth.uid()
+  )
+);
+
+drop policy if exists "Admins can update compatibility result notes" on public.compatibility_submissions;
+create policy "Admins can update compatibility result notes"
+on public.compatibility_submissions
+for update
+to authenticated
+using (
+  exists (
+    select 1 from public.compatibility_tests t
+    where t.id = compatibility_submissions.test_id
+      and t.owner_id = auth.uid()
+  )
+)
+with check (
   exists (
     select 1 from public.compatibility_tests t
     where t.id = compatibility_submissions.test_id
