@@ -1858,6 +1858,25 @@ function TestManager({ navigate, navigateToPath }) {
     setMessage("Test deleted.");
   };
 
+  const deleteSubmission = async (id) => {
+    setError("");
+    setMessage("");
+
+    const { error: deleteError } = await supabase
+      .from("compatibility_submissions")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setSubmissions((current) => current.filter((submission) => submission.id !== id));
+    setExpandedSubmissionIds((current) => current.filter((submissionId) => submissionId !== id));
+    setMessage("Result deleted.");
+  };
+
   const toggleSubmissionAnswers = (id) => {
     setExpandedSubmissionIds((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
@@ -2025,13 +2044,22 @@ function TestManager({ navigate, navigateToPath }) {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => toggleSubmissionAnswers(submission.id)}
-                  className="mt-4 rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
-                >
-                  {answersExpanded ? "Hide Answers" : `Show Answers (${answerCount})`}
-                </button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleSubmissionAnswers(submission.id)}
+                    className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                  >
+                    {answersExpanded ? "Hide Answers" : `Show Answers (${answerCount})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteSubmission(submission.id)}
+                    className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                  >
+                    Delete Result
+                  </button>
+                </div>
 
                 {answersExpanded && (
                   <div className="animate-soft-in mt-4 grid gap-2">
