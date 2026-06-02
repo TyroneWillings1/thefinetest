@@ -51,6 +51,7 @@ const DEFAULT_QUIZ_DETAILS = {
   email_notifications_enabled: false,
   short_test_enabled: false,
   short_question_count: 10,
+  short_results_enabled: false,
 };
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
@@ -441,6 +442,7 @@ function getQuizDetailsValue(settingData) {
     short_question_count: Number(
       value.short_question_count || DEFAULT_QUIZ_DETAILS.short_question_count
     ),
+    short_results_enabled: value.short_results_enabled === true,
   };
 }
 
@@ -472,8 +474,12 @@ async function notifyResultSubmission(submissionId) {
   }
 }
 
-function resultMarginRows(testId) {
-  return fallbackResultBands.map(({ id, ...band }) => ({ ...band, test_id: testId }));
+function resultMarginRows(testId, resultVariant = "full") {
+  return fallbackResultBands.map(({ id, ...band }) => ({
+    ...band,
+    test_id: testId,
+    result_variant: resultVariant,
+  }));
 }
 
 async function createCompatibilityTest(user, details = DEFAULT_QUIZ_DETAILS) {
@@ -489,6 +495,7 @@ async function createCompatibilityTest(user, details = DEFAULT_QUIZ_DETAILS) {
       short_test_enabled: details.short_test_enabled === true,
       short_question_count:
         Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count,
+      short_results_enabled: details.short_results_enabled === true,
       advanced_results_enabled: false,
     })
     .select("*")
@@ -496,7 +503,9 @@ async function createCompatibilityTest(user, details = DEFAULT_QUIZ_DETAILS) {
 
   if (error) return { data: null, error };
 
-  await supabase.from("compatibility_result_bands").insert(resultMarginRows(data.id));
+  await supabase
+    .from("compatibility_result_bands")
+    .insert([...resultMarginRows(data.id, "full"), ...resultMarginRows(data.id, "short")]);
   return { data, error: null };
 }
 
@@ -874,6 +883,7 @@ function FineCalculator({ navigate }) {
 function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
   const [questions, setQuestions] = useState([]);
   const [resultBands, setResultBands] = useState(fallbackResultBands);
+  const [shortResultBands, setShortResultBands] = useState(fallbackResultBands);
   const [useAdvancedResults, setUseAdvancedResults] = useState(false);
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [publicTest, setPublicTest] = useState(null);
@@ -925,7 +935,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
         .order("sort_order", { referencedTable: "compatibility_options", ascending: true }),
       supabase
         .from("compatibility_result_bands")
-        .select("id,min_percent,max_percent,title,message,sort_order")
+        .select("id,min_percent,max_percent,title,message,sort_order,result_variant")
         .eq("test_id", testData.id)
         .order("sort_order", { ascending: true }),
     ]);
@@ -945,7 +955,12 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
         }))
       );
       if (bandData?.length) {
-        setResultBands(bandData);
+        const fullBands = bandData.filter((band) => band.result_variant !== "short");
+        const shortBands = bandData.filter((band) => band.result_variant === "short");
+        if (fullBands.length) {
+          setResultBands(fullBands);
+        }
+        setShortResultBands(shortBands.length ? shortBands : fullBands);
       }
     }
 
@@ -978,8 +993,12 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
     }, 0);
 
     const percent = maxScore ? Math.round((score / maxScore) * 100) : 0;
+    const activeResultBands =
+      testLength === "short" && quizDetails.short_results_enabled === true
+        ? shortResultBands
+        : resultBands;
     const band = useAdvancedResults
-      ? pickResultBand(percent, resultBands)
+      ? pickResultBand(percent, activeResultBands)
       : pickResultBand(percent, fallbackResultBands);
     return {
       score,
@@ -988,7 +1007,15 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
       tier: band?.title || getCompatibilityTier(percent),
       message: band?.message || "",
     };
-  }, [answers, activeQuestions, resultBands, useAdvancedResults]);
+  }, [
+    answers,
+    activeQuestions,
+    quizDetails.short_results_enabled,
+    resultBands,
+    shortResultBands,
+    testLength,
+    useAdvancedResults,
+  ]);
 
   const submitTest = async (event, forceAnonymous = false) => {
     event.preventDefault();
@@ -2141,6 +2168,9 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [savedQuestions, setSavedQuestions] = useState([]);
   const [resultBands, setResultBands] = useState([]);
   const [savedResultBands, setSavedResultBands] = useState([]);
+  const [shortResultBands, setShortResultBands] = useState([]);
+  const [savedShortResultBands, setSavedShortResultBands] = useState([]);
+  const [resultMarginMode, setResultMarginMode] = useState("full");
   const [advancedResultsOn, setAdvancedResultsOn] = useState(false);
   const [savedAdvancedResultsOn, setSavedAdvancedResultsOn] = useState(false);
   const [deletedResultBandIds, setDeletedResultBandIds] = useState([]);
@@ -2198,6 +2228,15 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       navigate("login", true);
     }
   }, [loading, session, navigate]);
+
+  useEffect(() => {
+    if (
+      resultMarginMode === "short" &&
+      !(quizDetails.short_test_enabled && quizDetails.short_results_enabled)
+    ) {
+      setResultMarginMode("full");
+    }
+  }, [quizDetails.short_results_enabled, quizDetails.short_test_enabled, resultMarginMode]);
 
   const loadAdminData = async () => {
     setError("");
@@ -2266,7 +2305,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           .order("created_at", { ascending: false }),
         supabase
           .from("compatibility_result_bands")
-          .select("id,min_percent,max_percent,title,message,sort_order")
+          .select("id,min_percent,max_percent,title,message,sort_order,result_variant")
           .eq("test_id", currentTest.id)
           .order("sort_order", { ascending: true }),
       ]);
@@ -2282,6 +2321,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       setQuestions([]);
       setSubmissions([]);
       setResultBands([]);
+      setShortResultBands([]);
       return;
     }
 
@@ -2306,16 +2346,30 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setSubmissions(submissionData || []);
     let loadedBands = bandData || [];
     if (loadedBands.length === 0) {
-      await supabase.from("compatibility_result_bands").insert(resultMarginRows(currentTest.id));
+      await supabase
+        .from("compatibility_result_bands")
+        .insert([
+          ...resultMarginRows(currentTest.id, "full"),
+          ...resultMarginRows(currentTest.id, "short"),
+        ]);
       const { data: freshBands } = await supabase
         .from("compatibility_result_bands")
-        .select("id,min_percent,max_percent,title,message,sort_order")
+        .select("id,min_percent,max_percent,title,message,sort_order,result_variant")
         .eq("test_id", currentTest.id)
         .order("sort_order", { ascending: true });
       loadedBands = freshBands || [];
     }
-    setResultBands(loadedBands);
-    setSavedResultBands(loadedBands);
+    const loadedFullBands = loadedBands.filter((band) => band.result_variant !== "short");
+    const loadedShortBands = loadedBands.filter((band) => band.result_variant === "short");
+    const draftShortBands = loadedFullBands.map(({ id, ...band }, index) => ({
+      ...band,
+      id: `draft-short-${index}-${Date.now()}`,
+      result_variant: "short",
+    }));
+    setResultBands(loadedFullBands);
+    setSavedResultBands(loadedFullBands);
+    setShortResultBands(loadedShortBands.length ? loadedShortBands : draftShortBands);
+    setSavedShortResultBands(loadedShortBands.length ? loadedShortBands : draftShortBands);
     setDeletedResultBandIds([]);
     setAdvancedResultsOn(advancedEnabled);
     setSavedAdvancedResultsOn(advancedEnabled);
@@ -2507,6 +2561,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         1,
         Number(quizDetails.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
       ),
+      short_results_enabled: quizDetails.short_results_enabled === true,
     };
 
     const { error: saveError } = await supabase
@@ -2518,6 +2573,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         email_notifications_enabled: cleanedDetails.email_notifications_enabled,
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
+        short_results_enabled: cleanedDetails.short_results_enabled,
         updated_at: new Date().toISOString(),
       })
       .eq("id", activeTest.id)
@@ -2596,6 +2652,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
             1,
             Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
           ),
+          short_results_enabled: details.short_results_enabled === true,
           updated_at: new Date().toISOString(),
         })
         .eq("id", activeTest.id)
@@ -2702,17 +2759,18 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   };
 
   const updateResultBand = (id, changes) => {
-    setResultBands((current) =>
-      current.map((band) => (band.id === id ? { ...band, ...changes } : band))
-    );
+    const setter = resultMarginMode === "short" ? setShortResultBands : setResultBands;
+    setter((current) => current.map((band) => (band.id === id ? { ...band, ...changes } : band)));
   };
 
   const addResultBand = () => {
-    setResultBands((current) => [
+    const setter = resultMarginMode === "short" ? setShortResultBands : setResultBands;
+    setter((current) => [
       ...current,
       {
-        id: `draft-${Date.now()}`,
+        id: `draft-${resultMarginMode}-${Date.now()}`,
         test_id: activeTest?.id,
+        result_variant: resultMarginMode,
         min_percent: 0,
         max_percent: 100,
         title: "Custom Result",
@@ -2727,11 +2785,13 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       setDeletedResultBandIds((current) => [...new Set([...current, id])]);
     }
 
-    setResultBands((current) => current.filter((band) => band.id !== id));
+    const setter = resultMarginMode === "short" ? setShortResultBands : setResultBands;
+    setter((current) => current.filter((band) => band.id !== id));
   };
 
   const discardAdvancedSettings = () => {
     setResultBands(savedResultBands);
+    setShortResultBands(savedShortResultBands);
     setAdvancedResultsOn(savedAdvancedResultsOn);
     setQuizDetails(savedQuizDetails);
     setDeletedResultBandIds([]);
@@ -2752,6 +2812,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         1,
         Number(quizDetails.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
       ),
+      short_results_enabled: quizDetails.short_results_enabled === true,
     };
 
     const { error: settingError } = await supabase
@@ -2763,6 +2824,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         email_notifications_enabled: cleanedDetails.email_notifications_enabled,
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
+        short_results_enabled: cleanedDetails.short_results_enabled,
         updated_at: new Date().toISOString(),
       })
       .eq("id", activeTest.id)
@@ -2786,8 +2848,12 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       }
     }
 
-    const existingBands = resultBands.filter((band) => !String(band.id).startsWith("draft-"));
-    const draftBands = resultBands.filter((band) => String(band.id).startsWith("draft-"));
+    const bandsToSave = [
+      ...resultBands.map((band) => ({ ...band, result_variant: "full" })),
+      ...shortResultBands.map((band) => ({ ...band, result_variant: "short" })),
+    ];
+    const existingBands = bandsToSave.filter((band) => !String(band.id).startsWith("draft-"));
+    const draftBands = bandsToSave.filter((band) => String(band.id).startsWith("draft-"));
 
     for (const band of existingBands) {
       const { id, ...changes } = band;
@@ -2867,7 +2933,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     );
   };
 
-  const sortedResultMargins = [...resultBands].sort(
+  const activeResultBands = resultMarginMode === "short" ? shortResultBands : resultBands;
+  const sortedResultMargins = [...activeResultBands].sort(
     (a, b) => Number(a.min_percent) - Number(b.min_percent)
   );
   const resultMarginGaps = sortedResultMargins.reduce((gaps, margin, index) => {
@@ -3439,28 +3506,67 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               </div>
 
               {quizDetails.short_test_enabled && (
-                <label className="mt-5 block max-w-xs">
-                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
-                    Questions in short quiz
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={Math.max(1, questions.length - 1)}
-                    value={quizDetails.short_question_count}
-                    onChange={(event) =>
-                      setQuizDetails((current) => ({
-                        ...current,
-                        short_question_count: Number(event.target.value),
-                      }))
-                    }
-                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
-                    placeholder="10"
-                  />
-                  <span className="mt-2 block text-sm text-zinc-400">
-                    Example: 10 questions is about {Math.max(1, Math.ceil(10 * 0.5))} minutes.
-                  </span>
-                </label>
+                <div className="mt-5 grid gap-4">
+                  <label className="block max-w-xs">
+                    <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                      Questions in short quiz
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={Math.max(1, questions.length - 1)}
+                      value={quizDetails.short_question_count}
+                      onChange={(event) =>
+                        setQuizDetails((current) => ({
+                          ...current,
+                          short_question_count: Number(event.target.value),
+                        }))
+                      }
+                      className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                      placeholder="10"
+                    />
+                    <span className="mt-2 block text-sm text-zinc-400">
+                      Example: 10 questions is about {Math.max(1, Math.ceil(10 * 0.5))} minutes.
+                    </span>
+                  </label>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-300/20 bg-zinc-950/70 p-3">
+                    <div>
+                      <p className="text-sm font-black text-white">
+                        Enable separate result margins for shorter test?
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-zinc-400">
+                        Use different result titles and messages when someone chooses the short quiz.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-3 text-sm font-black text-zinc-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextEnabled = !quizDetails.short_results_enabled;
+                          setQuizDetails((current) => ({
+                            ...current,
+                            short_results_enabled: nextEnabled,
+                          }));
+                          if (nextEnabled) {
+                            setResultMarginMode("short");
+                          }
+                        }}
+                        className={`relative h-4 w-8 rounded-full transition ${
+                          quizDetails.short_results_enabled ? "bg-emerald-400" : "bg-red-500"
+                        }`}
+                        aria-label="Toggle separate short quiz result margins"
+                      >
+                        <span
+                          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                            quizDetails.short_results_enabled ? "left-[18px]" : "left-0.5"
+                          }`}
+                        />
+                      </button>
+                      {quizDetails.short_results_enabled ? "Enabled" : "Disabled"}
+                    </label>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -3522,10 +3628,38 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   </p>
                 </div>
               )}
+              {advancedResultsOn &&
+                quizDetails.short_test_enabled &&
+                quizDetails.short_results_enabled && (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setResultMarginMode("full")}
+                      className={`rounded-full px-4 py-2 text-sm font-black ${
+                        resultMarginMode === "full"
+                          ? "bg-white text-zinc-950"
+                          : "bg-white/10 text-white"
+                      }`}
+                    >
+                      Long Test Margins
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultMarginMode("short")}
+                      className={`rounded-full px-4 py-2 text-sm font-black ${
+                        resultMarginMode === "short"
+                          ? "bg-white text-zinc-950"
+                          : "bg-white/10 text-white"
+                      }`}
+                    >
+                      Short Test Margins
+                    </button>
+                  </div>
+                )}
             </div>
 
             <div className={`grid gap-4 ${advancedResultsOn ? "" : "pointer-events-none opacity-45"}`}>
-              {resultBands.map((band) => (
+              {activeResultBands.map((band) => (
                 <article key={band.id} className="rounded-lg border border-white/10 p-4">
                   <div className="grid gap-3 md:grid-cols-[100px_100px_1fr_90px]">
                     <label>

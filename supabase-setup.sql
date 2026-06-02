@@ -63,6 +63,7 @@ create table if not exists public.compatibility_result_bands (
   title text not null default 'Custom Result',
   message text not null default '',
   sort_order integer not null default 1,
+  result_variant text not null default 'full',
   created_at timestamptz not null default now()
 );
 
@@ -90,6 +91,7 @@ create table if not exists public.compatibility_tests (
   email_notifications_enabled boolean not null default false,
   short_test_enabled boolean not null default false,
   short_question_count integer not null default 10,
+  short_results_enabled boolean not null default false,
   advanced_results_enabled boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -101,11 +103,17 @@ add column if not exists test_id uuid references public.compatibility_tests(id) 
 alter table public.compatibility_result_bands
 add column if not exists test_id uuid references public.compatibility_tests(id) on delete cascade;
 
+alter table public.compatibility_result_bands
+add column if not exists result_variant text not null default 'full';
+
 alter table public.compatibility_submissions
 add column if not exists test_id uuid references public.compatibility_tests(id) on delete cascade;
 
 alter table public.compatibility_tests
 add column if not exists email_notifications_enabled boolean not null default false;
+
+alter table public.compatibility_tests
+add column if not exists short_results_enabled boolean not null default false;
 
 do $$
 declare
@@ -141,6 +149,7 @@ begin
       description,
       short_test_enabled,
       short_question_count,
+      short_results_enabled,
       advanced_results_enabled
     )
     values (
@@ -150,6 +159,7 @@ begin
       coalesce(legacy_details->>'description', ''),
       coalesce((legacy_details->>'short_test_enabled')::boolean, false),
       coalesce((legacy_details->>'short_question_count')::integer, 10),
+      coalesce((legacy_details->>'short_results_enabled')::boolean, false),
       coalesce((legacy_advanced->>'enabled')::boolean, false)
     )
     returning id into legacy_test;
@@ -439,15 +449,15 @@ $$;
 revoke all on function public.delete_current_user() from public;
 grant execute on function public.delete_current_user() to authenticated;
 
-insert into public.compatibility_result_bands (min_percent, max_percent, title, message, sort_order)
+insert into public.compatibility_result_bands (min_percent, max_percent, title, message, sort_order, result_variant)
 select *
 from (
   values
-    (0, 39, 'Not My Type', 'The compatibility is low, but thanks for taking the test.', 1),
-    (40, 59, 'Mixed Signal', 'There are some overlaps, but some important gaps too.', 2),
-    (60, 79, 'Promising', 'This has enough alignment to be interesting.', 3),
-    (80, 100, 'Strong Match', 'This looks like a strong compatibility match.', 4)
-) as band(min_percent, max_percent, title, message, sort_order)
+    (0, 39, 'Not My Type', 'The compatibility is low, but thanks for taking the test.', 1, 'full'),
+    (40, 59, 'Mixed Signal', 'There are some overlaps, but some important gaps too.', 2, 'full'),
+    (60, 79, 'Promising', 'This has enough alignment to be interesting.', 3, 'full'),
+    (80, 100, 'Strong Match', 'This looks like a strong compatibility match.', 4, 'full')
+) as band(min_percent, max_percent, title, message, sort_order, result_variant)
 where not exists (select 1 from public.compatibility_result_bands);
 
 insert into public.compatibility_settings (key, value)
@@ -455,7 +465,7 @@ values ('advanced_results', '{"enabled": false}'::jsonb)
 on conflict (key) do nothing;
 
 insert into public.compatibility_settings (key, value)
-values ('quiz_details', '{"title": "Compatibility Test", "description": "", "public_id": "", "short_test_enabled": false, "short_question_count": 10}'::jsonb)
+values ('quiz_details', '{"title": "Compatibility Test", "description": "", "public_id": "", "short_test_enabled": false, "short_question_count": 10, "short_results_enabled": false}'::jsonb)
 on conflict (key) do nothing;
 
 -- Random question templates now live in the app and are only added when you click random-question controls.
