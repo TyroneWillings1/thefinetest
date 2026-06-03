@@ -454,6 +454,12 @@ function getTestDraftKey(testId) {
   return `${TEST_DRAFT_KEY_PREFIX}${testId}`;
 }
 
+function isDateAfter(value, baseline) {
+  const valueTime = Date.parse(value || "");
+  const baselineTime = Date.parse(baseline || "");
+  return Number.isFinite(valueTime) && (!Number.isFinite(baselineTime) || valueTime > baselineTime);
+}
+
 function normalizeUsername(value = "") {
   return value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
 }
@@ -595,6 +601,15 @@ function cloneQuestions(questions = []) {
     ...question,
     compatibility_options: (question.compatibility_options || []).map((option) => ({ ...option })),
   }));
+}
+
+function questionStructureSignature(questions = []) {
+  return questions
+    .map(
+      (question) =>
+        `${question.id}:${(question.compatibility_options || []).map((option) => option.id).join(",")}`
+    )
+    .join("|");
 }
 
 function getSliderColor(value, max) {
@@ -2328,16 +2343,28 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     const loadedQuestions = cloneQuestions(questionData || []);
     const advancedEnabled = currentTest.advanced_results_enabled === true;
     const loadedQuizDetails = getQuizDetailsValue(currentTest);
+    const draftKey = getTestDraftKey(currentTest.id);
+    const savedUpdatedAt = currentTest.updated_at || currentTest.created_at;
     let draft = null;
 
     try {
-      draft = JSON.parse(window.localStorage.getItem(getTestDraftKey(currentTest.id)) || "null");
+      draft = JSON.parse(window.localStorage.getItem(draftKey) || "null");
     } catch {
       draft = null;
     }
 
-    const draftQuestions = Array.isArray(draft?.questions) ? cloneQuestions(draft.questions) : null;
-    const draftQuizDetails = draft?.quizDetails
+    const draftMatchesSavedStructure =
+      Array.isArray(draft?.questions) &&
+      questionStructureSignature(draft.questions) === questionStructureSignature(loadedQuestions);
+    const shouldUseDraft =
+      draft && isDateAfter(draft.updatedAt, savedUpdatedAt) && draftMatchesSavedStructure;
+    if (draft && !shouldUseDraft) {
+      window.localStorage.removeItem(draftKey);
+    }
+
+    const draftQuestions =
+      shouldUseDraft && Array.isArray(draft?.questions) ? cloneQuestions(draft.questions) : null;
+    const draftQuizDetails = shouldUseDraft && draft?.quizDetails
       ? getQuizDetailsValue(draft.quizDetails)
       : null;
 
@@ -2396,6 +2423,23 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const logout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+  };
+
+  const touchActiveTest = async () => {
+    if (!activeTest?.id || !session?.user?.id) return;
+
+    const nextUpdatedAt = new Date().toISOString();
+    const { error: touchError } = await supabase
+      .from("compatibility_tests")
+      .update({ updated_at: nextUpdatedAt })
+      .eq("id", activeTest.id)
+      .eq("owner_id", session.user.id);
+
+    if (!touchError) {
+      setActiveTest((current) =>
+        current?.id === activeTest.id ? { ...current, updated_at: nextUpdatedAt } : current
+      );
+    }
   };
 
   const addQuestion = async (template = null) => {
@@ -2463,6 +2507,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setMessage(template ? "Random question added." : "Question added.");
     setQuestions((current) => [...current, nextQuestion]);
     setSavedQuestions((current) => [...current, cloneQuestions([nextQuestion])[0]]);
+    await touchActiveTest();
   };
 
   const addRandomQuestion = () => {
@@ -2522,6 +2567,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setQuestions((current) => current.filter((question) => question.id !== id));
     setSavedQuestions((current) => current.filter((question) => question.id !== id));
     setMessage("Question deleted.");
+    await touchActiveTest();
   };
 
   const clearAllQuestions = async () => {
@@ -2540,6 +2586,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setSavedQuestions([]);
     setConfirmClearQuestions(false);
     setMessage("All questions cleared.");
+    await touchActiveTest();
   };
 
   const saveQuizDetails = async () => {
@@ -2563,6 +2610,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       ),
       short_results_enabled: quizDetails.short_results_enabled === true,
     };
+    const nextUpdatedAt = new Date().toISOString();
 
     const { error: saveError } = await supabase
       .from("compatibility_tests")
@@ -2574,7 +2622,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
         short_results_enabled: cleanedDetails.short_results_enabled,
-        updated_at: new Date().toISOString(),
+        updated_at: nextUpdatedAt,
       })
       .eq("id", activeTest.id)
       .eq("owner_id", session.user.id);
@@ -2622,6 +2670,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setQuizDetails(cleanedDetails);
     setSavedQuizDetails(cleanedDetails);
     setSavedQuestions(cloneQuestions(questions));
+    setActiveTest((current) =>
+      current?.id === activeTest.id
+        ? { ...current, ...cleanedDetails, updated_at: nextUpdatedAt }
+        : current
+    );
     setSavingTest(false);
     setSaveConfirmed(true);
     setMessage(`Test saved at ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`);
@@ -2640,6 +2693,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     if (!TEST_ID_PATTERN.test(details.public_id)) {
       const nextTestId = createTestId();
       details = { ...details, public_id: nextTestId };
+      const nextUpdatedAt = new Date().toISOString();
       const { error: saveError } = await supabase
         .from("compatibility_tests")
         .update({
@@ -2653,7 +2707,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
             Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count
           ),
           short_results_enabled: details.short_results_enabled === true,
-          updated_at: new Date().toISOString(),
+          updated_at: nextUpdatedAt,
         })
         .eq("id", activeTest.id)
         .eq("owner_id", session.user.id);
@@ -2665,6 +2719,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
       setQuizDetails(details);
       setSavedQuizDetails(details);
+      setActiveTest((current) =>
+        current?.id === activeTest.id
+          ? { ...current, ...getQuizDetailsValue(details), updated_at: nextUpdatedAt }
+          : current
+      );
     }
 
     const link = `${window.location.origin}/t/${details.public_id}`;
@@ -2726,6 +2785,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       )
     );
     setMessage("Answer added.");
+    await touchActiveTest();
   };
 
   const deleteOption = async (optionId) => {
@@ -2756,6 +2816,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       }))
     );
     setMessage("Answer deleted.");
+    await touchActiveTest();
   };
 
   const updateResultBand = (id, changes) => {
@@ -2814,6 +2875,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       ),
       short_results_enabled: quizDetails.short_results_enabled === true,
     };
+    const nextUpdatedAt = new Date().toISOString();
 
     const { error: settingError } = await supabase
       .from("compatibility_tests")
@@ -2825,7 +2887,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
         short_results_enabled: cleanedDetails.short_results_enabled,
-        updated_at: new Date().toISOString(),
+        updated_at: nextUpdatedAt,
       })
       .eq("id", activeTest.id)
       .eq("owner_id", session.user.id);
@@ -2882,6 +2944,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     window.localStorage.setItem(ADVANCED_RESULTS_KEY, String(advancedResultsOn));
     setQuizDetails(cleanedDetails);
     setSavedQuizDetails(cleanedDetails);
+    setActiveTest((current) =>
+      current?.id === activeTest.id
+        ? { ...current, ...cleanedDetails, updated_at: nextUpdatedAt }
+        : current
+    );
     setMessage("Advanced settings saved.");
     loadAdminData();
   };
