@@ -56,9 +56,11 @@ const DEFAULT_QUIZ_DETAILS = {
 };
 
 const EMPTY_SCOREBOARD_ENTRY = {
-  name: "",
+  private_name: "",
+  public_name: "",
   fine_score: 0,
-  compatibility_percent: 60,
+  short_compatibility_percent: "",
+  long_compatibility_percent: "",
   manual_adjustment: 0,
   note: "",
   sort_order: 1,
@@ -435,16 +437,60 @@ function getCompatibilityTier(percent) {
   return "Not My Type";
 }
 
-function getScoreboardAdjustment(compatibilityPercent) {
-  const percent = Math.max(0, Math.min(100, Number(compatibilityPercent) || 0));
-  if (percent >= 60) return Math.round(((percent - 60) / 40) * 20);
-  return -Math.round(((60 - percent) / 60) * 25);
+function getInitialsFromName(name = "") {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return "";
+  return parts.map((part) => `${part[0].toUpperCase()}.`).join(" ");
+}
+
+function getOptionalPercent(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+function getScoreboardCompatSource(entry) {
+  const longPercent = getOptionalPercent(entry.long_compatibility_percent);
+  if (longPercent !== null) {
+    return { label: "Long", percent: longPercent, maxAdjustment: 25 };
+  }
+
+  const shortPercent = getOptionalPercent(entry.short_compatibility_percent);
+  if (shortPercent !== null) {
+    return { label: "Short", percent: shortPercent, maxAdjustment: 10 };
+  }
+
+  const legacyPercent = getOptionalPercent(entry.compatibility_percent);
+  if (legacyPercent !== null) {
+    return { label: "Short", percent: legacyPercent, maxAdjustment: 10 };
+  }
+
+  return { label: "None", percent: null, maxAdjustment: 0 };
+}
+
+function getScoreboardAdjustment(entry) {
+  const source = getScoreboardCompatSource(entry);
+  if (source.percent === null || source.maxAdjustment === 0) return 0;
+
+  const fineQuality = Math.max(0, Math.min(150, Number(entry.fine_score) || 0)) / 150;
+  if (source.percent >= 60) {
+    const compatibilityLift = (source.percent - 60) / 40;
+    return Math.round(source.maxAdjustment * compatibilityLift * fineQuality);
+  }
+
+  const compatibilityDrop = (60 - source.percent) / 60;
+  return -Math.round(source.maxAdjustment * compatibilityDrop * (1 - fineQuality));
 }
 
 function getScoreboardFinal(entry) {
   const fineScore = Number(entry.fine_score) || 0;
   const manualAdjustment = Number(entry.manual_adjustment) || 0;
-  return fineScore + getScoreboardAdjustment(entry.compatibility_percent) + manualAdjustment;
+  return fineScore + getScoreboardAdjustment(entry) + manualAdjustment;
 }
 
 function getScoreboardTier(score) {
@@ -794,9 +840,7 @@ function Hub({ navigate }) {
           className="group rounded-lg border border-cyan-300/30 bg-zinc-950 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-200/70"
         >
           <h2 className="text-3xl font-black">Scoreboard</h2>
-          <p className="mt-3 text-zinc-300">
-            Public rankings with private edit access.
-          </p>
+          <p className="mt-3 text-zinc-300">View the current rankings.</p>
         </button>
       </section>
 
@@ -1333,6 +1377,7 @@ function ScoreboardPage({ navigate }) {
   const [confirmDelete, setConfirmDelete] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [adjustingId, setAdjustingId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -1342,31 +1387,12 @@ function ScoreboardPage({ navigate }) {
     const load = async () => {
       setError("");
 
-      const [{ data: sessionData }, entriesResult] = await Promise.all([
-        supabase.auth.getSession(),
-        supabase
-          .from("scoreboard_entries")
-          .select("*")
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: true }),
-      ]);
-
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!mounted) return;
 
       setSession(sessionData.session);
 
-      if (entriesResult.error) {
-        setError(
-          entriesResult.error.message.includes("scoreboard_entries")
-            ? "Scoreboard tables are not ready yet. Run the updated Supabase setup SQL first."
-            : entriesResult.error.message
-        );
-        setLoading(false);
-        return;
-      }
-
-      setEntries(entriesResult.data || []);
-
+      let adminAllowed = false;
       if (sessionData.session?.user?.id) {
         const { data: adminRow, error: adminError } = await supabase
           .from("scoreboard_admins")
@@ -1376,13 +1402,40 @@ function ScoreboardPage({ navigate }) {
 
         if (!mounted) return;
 
-        if (adminError && !adminError.message.includes("scoreboard_admins")) {
-          setError(adminError.message);
+        if (adminError) {
+          setError(
+            adminError.message.includes("scoreboard_admins")
+              ? "Scoreboard tables are not ready yet. Run the updated Supabase setup SQL first."
+              : adminError.message
+          );
+          setLoading(false);
+          return;
         }
 
-        setIsAdmin(Boolean(adminRow));
+        adminAllowed = Boolean(adminRow);
+        setIsAdmin(adminAllowed);
       }
 
+      const source = adminAllowed ? "scoreboard_entries" : "scoreboard_public_entries";
+      const { data: entryRows, error: entriesError } = await supabase
+        .from(source)
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (!mounted) return;
+
+      if (entriesError) {
+        setError(
+          entriesError.message.includes("scoreboard")
+            ? "Scoreboard tables are not ready yet. Run the updated Supabase setup SQL first."
+            : entriesError.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      setEntries(entryRows || []);
       setLoading(false);
     };
 
@@ -1424,9 +1477,13 @@ function ScoreboardPage({ navigate }) {
     setConfirmDelete("");
     setEditingId(entry.id);
     setForm({
-      name: entry.name || "",
+      private_name: entry.private_name || entry.name || "",
+      public_name: entry.public_name || getInitialsFromName(entry.private_name || entry.name || ""),
       fine_score: Number(entry.fine_score) || 0,
-      compatibility_percent: Number(entry.compatibility_percent) || 0,
+      short_compatibility_percent:
+        entry.short_compatibility_percent ?? "",
+      long_compatibility_percent:
+        entry.long_compatibility_percent ?? "",
       manual_adjustment: Number(entry.manual_adjustment) || 0,
       note: entry.note || "",
       sort_order: Number(entry.sort_order) || 1,
@@ -1444,10 +1501,19 @@ function ScoreboardPage({ navigate }) {
     setError("");
     setMessage("");
 
+    const privateName = form.private_name.trim();
+    const publicName = getInitialsFromName(privateName);
+    const shortPercent = getOptionalPercent(form.short_compatibility_percent);
+    const longPercent = getOptionalPercent(form.long_compatibility_percent);
+
     const payload = {
-      name: form.name.trim(),
+      name: publicName,
+      private_name: privateName,
+      public_name: publicName,
       fine_score: clampNumber(form.fine_score, 0, 150),
-      compatibility_percent: clampNumber(form.compatibility_percent, 0, 100),
+      short_compatibility_percent: shortPercent,
+      long_compatibility_percent: longPercent,
+      compatibility_percent: longPercent ?? shortPercent ?? 60,
       manual_adjustment: clampNumber(form.manual_adjustment, -50, 50),
       note: form.note.trim(),
       sort_order: clampNumber(form.sort_order, 1, 999),
@@ -1455,8 +1521,8 @@ function ScoreboardPage({ navigate }) {
       updated_at: new Date().toISOString(),
     };
 
-    if (!payload.name) {
-      setError("Add a name before saving.");
+    if (!payload.private_name || !payload.public_name) {
+      setError("Add a full name before saving.");
       return;
     }
 
@@ -1489,6 +1555,39 @@ function ScoreboardPage({ navigate }) {
     setMessage(editingId === "new" ? "Scoreboard entry added." : "Scoreboard entry saved.");
   };
 
+  const adjustEntryPoints = async (entry, delta) => {
+    setError("");
+    setMessage("");
+    setAdjustingId(entry.id);
+
+    const nextManualAdjustment = clampNumber(
+      Number(entry.manual_adjustment || 0) + delta,
+      -50,
+      50
+    );
+
+    const { data, error: adjustError } = await supabase
+      .from("scoreboard_entries")
+      .update({
+        manual_adjustment: nextManualAdjustment,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", entry.id)
+      .select("*")
+      .single();
+
+    setAdjustingId("");
+
+    if (adjustError) {
+      setError(adjustError.message);
+      return;
+    }
+
+    setEntries((current) =>
+      current.map((item) => (item.id === data.id ? data : item))
+    );
+  };
+
   const deleteEntry = async (id) => {
     setError("");
     setMessage("");
@@ -1516,9 +1615,6 @@ function ScoreboardPage({ navigate }) {
               Public Board
             </p>
             <h1 className="mt-3 text-4xl font-black text-white">Scoreboard</h1>
-            <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
-              Final score = F.I.N.E. score + compatibility curve + manual adjustment.
-            </p>
           </div>
 
           {isAdmin && (
@@ -1548,16 +1644,28 @@ function ScoreboardPage({ navigate }) {
             onSubmit={saveEntry}
             className="animate-soft-in mt-6 rounded-lg border border-cyan-300/30 bg-black/30 p-4"
           >
-            <div className="grid gap-4 sm:grid-cols-[1.5fr_0.7fr_0.7fr_0.7fr]">
+            <div className="grid gap-4 sm:grid-cols-[1.4fr_0.8fr_0.55fr_0.65fr_0.65fr_0.55fr]">
               <label>
                 <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
-                  Name
+                  Full name
                 </span>
                 <input
-                  value={form.name}
-                  onChange={(event) => updateForm("name", event.target.value)}
+                  value={form.private_name}
+                  onChange={(event) => updateForm("private_name", event.target.value)}
                   className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
-                  placeholder="Person name"
+                  placeholder="Visible only to you"
+                />
+              </label>
+
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Public
+                </span>
+                <input
+                  value={getInitialsFromName(form.private_name)}
+                  readOnly
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-3 text-zinc-300"
+                  placeholder="Initials"
                 />
               </label>
 
@@ -1577,15 +1685,35 @@ function ScoreboardPage({ navigate }) {
 
               <label>
                 <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
-                  Compat %
+                  Short %
                 </span>
                 <input
                   type="number"
                   min="0"
                   max="100"
-                  value={form.compatibility_percent}
-                  onChange={(event) => updateForm("compatibility_percent", event.target.value)}
+                  value={form.short_compatibility_percent}
+                  onChange={(event) =>
+                    updateForm("short_compatibility_percent", event.target.value)
+                  }
                   className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                  placeholder="-"
+                />
+              </label>
+
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Long %
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={form.long_compatibility_percent}
+                  onChange={(event) =>
+                    updateForm("long_compatibility_percent", event.target.value)
+                  }
+                  className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                  placeholder="-"
                 />
               </label>
 
@@ -1682,81 +1810,125 @@ function ScoreboardPage({ navigate }) {
         ) : (
           <div className="mt-8 grid gap-3">
             {rankedEntries.map((entry, index) => {
-              const curve = getScoreboardAdjustment(entry.compatibility_percent);
+              const source = getScoreboardCompatSource(entry);
+              const curve = getScoreboardAdjustment(entry);
               const finalScore = getScoreboardFinal(entry);
+              const shortPercent = getOptionalPercent(entry.short_compatibility_percent);
+              const longPercent = getOptionalPercent(entry.long_compatibility_percent);
+              const fullName = entry.private_name || entry.name || entry.public_name || "";
+              const publicName =
+                entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
+              const manualAdjustment = Number(entry.manual_adjustment) || 0;
 
               return (
                 <article
                   key={entry.id}
-                  className={`rounded-lg border p-4 ${
+                  className={`rounded-lg border px-4 py-3 ${
                     entry.active === false
                       ? "border-red-400/30 bg-red-950/20"
                       : "border-white/10 bg-white/5"
                   }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div
+                    className={`grid gap-3 md:items-center ${
+                      isAdmin
+                        ? "md:grid-cols-[2.5rem_minmax(8rem,1fr)_auto_auto_auto_auto]"
+                        : "md:grid-cols-[2.5rem_minmax(8rem,1fr)_auto_auto_auto]"
+                    }`}
+                  >
+                    <p className="text-sm font-black text-cyan-300">#{index + 1}</p>
+
                     <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
-                        #{index + 1}
-                      </p>
-                      <h2 className="mt-2 break-words text-2xl font-black text-white">
-                        {entry.name}
-                      </h2>
+                      <h2 className="break-words text-2xl font-black text-white">{publicName}</h2>
+                      {isAdmin && fullName && (
+                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">
+                          Full name: {fullName}
+                        </p>
+                      )}
                       {entry.note && (
-                        <p className="mt-2 max-w-2xl leading-6 text-zinc-300">{entry.note}</p>
+                        <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-300">
+                          {entry.note}
+                        </p>
                       )}
                       {entry.active === false && (
-                        <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-red-200">
+                        <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-red-200">
                           Hidden from public view
                         </p>
                       )}
                     </div>
 
-                    <div className="rounded-md bg-white px-5 py-4 text-center text-zinc-950">
-                      <p className="text-4xl font-black">{finalScore}</p>
-                      <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-700">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                        FINE
+                      </p>
+                      <p className="text-xl font-black text-white">{entry.fine_score}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                        Compat
+                      </p>
+                      <p className="text-xl font-black text-white">
+                        {source.percent === null ? "--" : `${source.percent}%`}
+                      </p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                        {source.label}
+                        {isAdmin && (
+                          <>
+                            {" "}
+                            S:{shortPercent ?? "--"} L:{longPercent ?? "--"}
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    {isAdmin && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                          Adjust
+                        </p>
+                        <div className="mt-1 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => adjustEntryPoints(entry, -1)}
+                            disabled={adjustingId === entry.id}
+                            className="grid h-8 w-8 place-items-center rounded-md bg-red-400 text-lg font-black text-zinc-950 disabled:opacity-50"
+                            aria-label="Subtract one point"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-8 text-center text-sm font-black text-white">
+                            {manualAdjustment > 0 ? `+${manualAdjustment}` : manualAdjustment}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => adjustEntryPoints(entry, 1)}
+                            disabled={adjustingId === entry.id}
+                            className="grid h-8 w-8 place-items-center rounded-md bg-emerald-400 text-lg font-black text-zinc-950 disabled:opacity-50"
+                            aria-label="Add one point"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                          Curve {curve > 0 ? `+${curve}` : curve}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="rounded-md bg-white px-4 py-3 text-center text-zinc-950 md:justify-self-end">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                        Points
+                      </p>
+                      <p className="text-3xl font-black">{finalScore}</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-700">
                         {getScoreboardTier(finalScore)}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-2 sm:grid-cols-4">
-                    <div className="rounded-md bg-black/30 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                        F.I.N.E.
-                      </p>
-                      <p className="mt-1 text-xl font-black text-white">{entry.fine_score}</p>
-                    </div>
-                    <div className="rounded-md bg-black/30 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                        Compatibility
-                      </p>
-                      <p className="mt-1 text-xl font-black text-white">
-                        {entry.compatibility_percent}%
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-black/30 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                        Curve
-                      </p>
-                      <p className="mt-1 text-xl font-black text-white">
-                        {curve > 0 ? `+${curve}` : curve}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-black/30 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                        Manual
-                      </p>
-                      <p className="mt-1 text-xl font-black text-white">
-                        {Number(entry.manual_adjustment) > 0
-                          ? `+${entry.manual_adjustment}`
-                          : entry.manual_adjustment}
-                      </p>
-                    </div>
-                  </div>
-
                   {isAdmin && (
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => startEditEntry(entry)}

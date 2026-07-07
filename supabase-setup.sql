@@ -90,8 +90,12 @@ create table if not exists public.scoreboard_admins (
 create table if not exists public.scoreboard_entries (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  private_name text default '',
+  public_name text default '',
   fine_score integer not null default 0,
   compatibility_percent integer not null default 60,
+  short_compatibility_percent integer,
+  long_compatibility_percent integer,
   manual_adjustment integer not null default 0,
   note text default '',
   sort_order integer not null default 1,
@@ -99,6 +103,55 @@ create table if not exists public.scoreboard_entries (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create or replace function public.scoreboard_public_initials(full_name text)
+returns text
+language sql
+immutable
+as $$
+  select coalesce(
+    nullif(string_agg(upper(left(part, 1)) || '.', ' ' order by ord), ''),
+    'N.'
+  )
+  from regexp_split_to_table(coalesce(nullif(trim(full_name), ''), 'Name'), '\s+') with ordinality as pieces(part, ord);
+$$;
+
+alter table public.scoreboard_entries
+add column if not exists private_name text default '';
+
+alter table public.scoreboard_entries
+add column if not exists public_name text default '';
+
+alter table public.scoreboard_entries
+add column if not exists short_compatibility_percent integer;
+
+alter table public.scoreboard_entries
+add column if not exists long_compatibility_percent integer;
+
+update public.scoreboard_entries
+set private_name = coalesce(nullif(private_name, ''), name),
+    public_name = coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name)),
+    name = coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name)),
+    long_compatibility_percent = coalesce(long_compatibility_percent, compatibility_percent);
+
+drop view if exists public.scoreboard_public_entries;
+create view public.scoreboard_public_entries as
+select
+  id,
+  coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name)) as public_name,
+  fine_score,
+  short_compatibility_percent,
+  long_compatibility_percent,
+  manual_adjustment,
+  note,
+  sort_order,
+  active,
+  created_at,
+  updated_at
+from public.scoreboard_entries
+where active = true;
+
+grant select on public.scoreboard_public_entries to anon, authenticated;
 
 create table if not exists public.compatibility_tests (
   id uuid primary key default gen_random_uuid(),
@@ -462,11 +515,7 @@ to authenticated
 using (auth.uid() = user_id);
 
 drop policy if exists "Public can read active scoreboard entries" on public.scoreboard_entries;
-create policy "Public can read active scoreboard entries"
-on public.scoreboard_entries
-for select
-to anon, authenticated
-using (active = true);
+-- Public scoreboard reads use public.scoreboard_public_entries so private names stay private.
 
 drop policy if exists "Scoreboard admins can read all scoreboard entries" on public.scoreboard_entries;
 create policy "Scoreboard admins can read all scoreboard entries"
