@@ -1547,10 +1547,19 @@ function ScoreboardPage({ navigate }) {
   const openAdjustmentPrompt = (entry, delta) => {
     setError("");
     setMessage("");
-    setAdjustmentDraft({
-      entry,
-      delta,
-      note: "",
+    setAdjustmentDraft((current) => {
+      if (current?.entry?.id === entry.id) {
+        return {
+          ...current,
+          delta: Number(current.delta || 0) + delta,
+        };
+      }
+
+      return {
+        entry,
+        delta,
+        note: "",
+      };
     });
   };
 
@@ -1578,7 +1587,7 @@ function ScoreboardPage({ navigate }) {
       short_compatibility_percent: shortPercent,
       long_compatibility_percent: longPercent,
       compatibility_percent: longPercent ?? shortPercent ?? 60,
-      manual_adjustment: clampNumber(form.manual_adjustment, -50, 50),
+      manual_adjustment: Math.round(Number(form.manual_adjustment) || 0),
       note: form.note.trim(),
       sort_order: clampNumber(form.sort_order, 1, 999),
       active: form.active === true,
@@ -1628,11 +1637,7 @@ function ScoreboardPage({ navigate }) {
     setAdjustingId(entry.id);
 
     const previousManualAdjustment = Number(entry.manual_adjustment || 0);
-    const nextManualAdjustment = clampNumber(
-      previousManualAdjustment + delta,
-      -50,
-      50
-    );
+    const nextManualAdjustment = previousManualAdjustment + delta;
 
     const { data, error: adjustError } = await supabase
       .from("scoreboard_entries")
