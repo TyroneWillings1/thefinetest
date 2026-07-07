@@ -492,12 +492,11 @@ function getScoreboardCompatSource(entry) {
 }
 
 function roundScoreboardNumber(value) {
-  return Math.round(Number(value || 0) * 10) / 10;
+  return Math.round(Number(value || 0));
 }
 
 function formatScoreboardNumber(value) {
-  const rounded = roundScoreboardNumber(value);
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return String(roundScoreboardNumber(value));
 }
 
 function getScoreboardBandBonus(percent, bands = []) {
