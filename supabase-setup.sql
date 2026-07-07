@@ -82,6 +82,24 @@ create table if not exists public.compatibility_profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.scoreboard_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.scoreboard_entries (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  fine_score integer not null default 0,
+  compatibility_percent integer not null default 60,
+  manual_adjustment integer not null default 0,
+  note text default '',
+  sort_order integer not null default 1,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.compatibility_tests (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -186,6 +204,8 @@ alter table public.compatibility_result_bands enable row level security;
 alter table public.compatibility_settings enable row level security;
 alter table public.compatibility_profiles enable row level security;
 alter table public.compatibility_tests enable row level security;
+alter table public.scoreboard_admins enable row level security;
+alter table public.scoreboard_entries enable row level security;
 
 drop policy if exists "Public can read active questions" on public.compatibility_questions;
 create policy "Public can read active questions"
@@ -433,6 +453,89 @@ on public.compatibility_tests
 for delete
 to authenticated
 using (auth.uid() = owner_id);
+
+drop policy if exists "Users can read their scoreboard admin row" on public.scoreboard_admins;
+create policy "Users can read their scoreboard admin row"
+on public.scoreboard_admins
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Public can read active scoreboard entries" on public.scoreboard_entries;
+create policy "Public can read active scoreboard entries"
+on public.scoreboard_entries
+for select
+to anon, authenticated
+using (active = true);
+
+drop policy if exists "Scoreboard admins can read all scoreboard entries" on public.scoreboard_entries;
+create policy "Scoreboard admins can read all scoreboard entries"
+on public.scoreboard_entries
+for select
+to authenticated
+using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Scoreboard admins can create scoreboard entries" on public.scoreboard_entries;
+create policy "Scoreboard admins can create scoreboard entries"
+on public.scoreboard_entries
+for insert
+to authenticated
+with check (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Scoreboard admins can update scoreboard entries" on public.scoreboard_entries;
+create policy "Scoreboard admins can update scoreboard entries"
+on public.scoreboard_entries
+for update
+to authenticated
+using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Scoreboard admins can delete scoreboard entries" on public.scoreboard_entries;
+create policy "Scoreboard admins can delete scoreboard entries"
+on public.scoreboard_entries
+for delete
+to authenticated
+using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+insert into public.scoreboard_admins (user_id)
+select owner_id
+from public.compatibility_tests
+order by created_at asc
+limit 1
+on conflict (user_id) do nothing;
+
+insert into public.scoreboard_admins (user_id)
+select id
+from auth.users
+where not exists (select 1 from public.scoreboard_admins)
+order by created_at asc
+limit 1
+on conflict (user_id) do nothing;
 
 create or replace function public.delete_current_user()
 returns void

@@ -36,6 +36,7 @@ const routes = {
   compatibility: "/compatibility",
   login: "/login",
   tests: "/tests",
+  scoreboard: "/scoreboard",
   admin: "/compatible",
   settings: "/settings",
 };
@@ -52,6 +53,16 @@ const DEFAULT_QUIZ_DETAILS = {
   short_test_enabled: false,
   short_question_count: 10,
   short_results_enabled: false,
+};
+
+const EMPTY_SCOREBOARD_ENTRY = {
+  name: "",
+  fine_score: 0,
+  compatibility_percent: 60,
+  manual_adjustment: 0,
+  note: "",
+  sort_order: 1,
+  active: true,
 };
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
@@ -386,6 +397,7 @@ function getViewFromPath(pathname) {
   if (pathname === routes.compatibility) return "compatibility";
   if (pathname === routes.login) return "login";
   if (pathname === routes.tests) return "tests";
+  if (pathname === routes.scoreboard) return "scoreboard";
   if (pathname === routes.admin) return "admin";
   if (pathname === routes.settings) return "settings";
   return "landing";
@@ -421,6 +433,32 @@ function getCompatibilityTier(percent) {
   if (percent >= 60) return "Promising";
   if (percent >= 40) return "Mixed Signal";
   return "Not My Type";
+}
+
+function getScoreboardAdjustment(compatibilityPercent) {
+  const percent = Math.max(0, Math.min(100, Number(compatibilityPercent) || 0));
+  if (percent >= 60) return Math.round(((percent - 60) / 40) * 20);
+  return -Math.round(((60 - percent) / 60) * 25);
+}
+
+function getScoreboardFinal(entry) {
+  const fineScore = Number(entry.fine_score) || 0;
+  const manualAdjustment = Number(entry.manual_adjustment) || 0;
+  return fineScore + getScoreboardAdjustment(entry.compatibility_percent) + manualAdjustment;
+}
+
+function getScoreboardTier(score) {
+  if (score >= 140) return "Top Tier";
+  if (score >= 115) return "Serious Contender";
+  if (score >= 90) return "Worth Watching";
+  if (score >= 60) return "Questionable";
+  return "Low Priority";
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.max(min, Math.min(max, Math.round(number)));
 }
 
 function advancedResultsEnabled() {
@@ -669,6 +707,15 @@ function AccountDrawer({ onClose, navigate }) {
             <span className="block text-lg font-black text-white">Compatibility Tests</span>
             <span className="mt-1 block text-sm text-zinc-400">Manage questions and results</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("scoreboard")}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
+          >
+            <span className="block text-lg font-black text-white">Scoreboard</span>
+            <span className="mt-1 block text-sm text-zinc-400">View the public board</span>
+          </button>
         </nav>
 
         <div className="mt-auto border-t border-white/10 pt-4">
@@ -738,6 +785,17 @@ function Hub({ navigate }) {
           <h2 className="text-3xl font-black">Compatibility Test</h2>
           <p className="mt-3 text-zinc-300">
             Test to see how compatible you are with anyone.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("scoreboard")}
+          className="group rounded-lg border border-cyan-300/30 bg-zinc-950 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-200/70"
+        >
+          <h2 className="text-3xl font-black">Scoreboard</h2>
+          <p className="mt-3 text-zinc-300">
+            Public rankings with private edit access.
           </p>
         </button>
       </section>
@@ -1266,6 +1324,485 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
   );
 }
 
+function ScoreboardPage({ navigate }) {
+  const [session, setSession] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [entries, setEntries] = useState([]);
+  const [editingId, setEditingId] = useState("");
+  const [form, setForm] = useState(EMPTY_SCOREBOARD_ENTRY);
+  const [confirmDelete, setConfirmDelete] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setError("");
+
+      const [{ data: sessionData }, entriesResult] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase
+          .from("scoreboard_entries")
+          .select("*")
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+      ]);
+
+      if (!mounted) return;
+
+      setSession(sessionData.session);
+
+      if (entriesResult.error) {
+        setError(
+          entriesResult.error.message.includes("scoreboard_entries")
+            ? "Scoreboard tables are not ready yet. Run the updated Supabase setup SQL first."
+            : entriesResult.error.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      setEntries(entriesResult.data || []);
+
+      if (sessionData.session?.user?.id) {
+        const { data: adminRow, error: adminError } = await supabase
+          .from("scoreboard_admins")
+          .select("user_id")
+          .eq("user_id", sessionData.session.user.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        if (adminError && !adminError.message.includes("scoreboard_admins")) {
+          setError(adminError.message);
+        }
+
+        setIsAdmin(Boolean(adminRow));
+      }
+
+      setLoading(false);
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const rankedEntries = useMemo(
+    () =>
+      [...entries].sort((a, b) => {
+        const scoreDiff = getScoreboardFinal(b) - getScoreboardFinal(a);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+      }),
+    [entries]
+  );
+
+  const updateForm = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const startNewEntry = () => {
+    setError("");
+    setMessage("");
+    setConfirmDelete("");
+    setEditingId("new");
+    setForm({
+      ...EMPTY_SCOREBOARD_ENTRY,
+      sort_order: entries.length + 1,
+    });
+  };
+
+  const startEditEntry = (entry) => {
+    setError("");
+    setMessage("");
+    setConfirmDelete("");
+    setEditingId(entry.id);
+    setForm({
+      name: entry.name || "",
+      fine_score: Number(entry.fine_score) || 0,
+      compatibility_percent: Number(entry.compatibility_percent) || 0,
+      manual_adjustment: Number(entry.manual_adjustment) || 0,
+      note: entry.note || "",
+      sort_order: Number(entry.sort_order) || 1,
+      active: entry.active !== false,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId("");
+    setForm(EMPTY_SCOREBOARD_ENTRY);
+  };
+
+  const saveEntry = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+
+    const payload = {
+      name: form.name.trim(),
+      fine_score: clampNumber(form.fine_score, 0, 150),
+      compatibility_percent: clampNumber(form.compatibility_percent, 0, 100),
+      manual_adjustment: clampNumber(form.manual_adjustment, -50, 50),
+      note: form.note.trim(),
+      sort_order: clampNumber(form.sort_order, 1, 999),
+      active: form.active === true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (!payload.name) {
+      setError("Add a name before saving.");
+      return;
+    }
+
+    setSaving(true);
+
+    const result =
+      editingId === "new"
+        ? await supabase.from("scoreboard_entries").insert(payload).select("*").single()
+        : await supabase
+            .from("scoreboard_entries")
+            .update(payload)
+            .eq("id", editingId)
+            .select("*")
+            .single();
+
+    setSaving(false);
+
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    setEntries((current) =>
+      editingId === "new"
+        ? [...current, result.data]
+        : current.map((entry) => (entry.id === result.data.id ? result.data : entry))
+    );
+    setEditingId("");
+    setForm(EMPTY_SCOREBOARD_ENTRY);
+    setMessage(editingId === "new" ? "Scoreboard entry added." : "Scoreboard entry saved.");
+  };
+
+  const deleteEntry = async (id) => {
+    setError("");
+    setMessage("");
+    const { error: deleteError } = await supabase.from("scoreboard_entries").delete().eq("id", id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setEntries((current) => current.filter((entry) => entry.id !== id));
+    setConfirmDelete("");
+    if (editingId === id) cancelEdit();
+    setMessage("Scoreboard entry deleted.");
+  };
+
+  return (
+    <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
+      <BackButton onClick={() => (session ? navigate("dashboard") : navigate("landing"))} />
+
+      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
+              Public Board
+            </p>
+            <h1 className="mt-3 text-4xl font-black text-white">Scoreboard</h1>
+            <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+              Final score = F.I.N.E. score + compatibility curve + manual adjustment.
+            </p>
+          </div>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={startNewEntry}
+              className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
+            >
+              Add Entry
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="animate-soft-in mt-5 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="animate-soft-in mt-5 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
+            {message}
+          </div>
+        )}
+
+        {isAdmin && editingId && (
+          <form
+            onSubmit={saveEntry}
+            className="animate-soft-in mt-6 rounded-lg border border-cyan-300/30 bg-black/30 p-4"
+          >
+            <div className="grid gap-4 sm:grid-cols-[1.5fr_0.7fr_0.7fr_0.7fr]">
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Name
+                </span>
+                <input
+                  value={form.name}
+                  onChange={(event) => updateForm("name", event.target.value)}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                  placeholder="Person name"
+                />
+              </label>
+
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  F.I.N.E.
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  max="150"
+                  value={form.fine_score}
+                  onChange={(event) => updateForm("fine_score", event.target.value)}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                />
+              </label>
+
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Compat %
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={form.compatibility_percent}
+                  onChange={(event) => updateForm("compatibility_percent", event.target.value)}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                />
+              </label>
+
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Manual
+                </span>
+                <input
+                  type="number"
+                  min="-50"
+                  max="50"
+                  value={form.manual_adjustment}
+                  onChange={(event) => updateForm("manual_adjustment", event.target.value)}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]">
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Public note
+                </span>
+                <input
+                  value={form.note}
+                  onChange={(event) => updateForm("note", event.target.value)}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white"
+                  placeholder="Optional line shown on the public board"
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-none">
+                <label>
+                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Order
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.sort_order}
+                    onChange={(event) => updateForm("sort_order", event.target.value)}
+                    className="w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-3 text-white sm:w-24"
+                  />
+                </label>
+
+                <div>
+                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Visibility
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateForm("active", !form.active)}
+                    className={`relative h-9 w-20 rounded-full transition ${
+                      form.active ? "bg-emerald-400" : "bg-red-400"
+                    }`}
+                    aria-label={form.active ? "Entry visible" : "Entry hidden"}
+                  >
+                    <span
+                      className={`absolute top-1 h-7 w-7 rounded-full bg-white transition ${
+                        form.active ? "right-1" : "left-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save Entry"}
+              </button>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={saving}
+                className="rounded-md border border-white/10 px-5 py-3 font-black text-white transition hover:border-white/30 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {loading ? (
+          <p className="mt-8 text-zinc-300">Loading scoreboard...</p>
+        ) : rankedEntries.length === 0 ? (
+          <p className="mt-8 rounded-lg border border-white/10 bg-white/5 p-5 text-zinc-300">
+            No scoreboard entries yet.
+          </p>
+        ) : (
+          <div className="mt-8 grid gap-3">
+            {rankedEntries.map((entry, index) => {
+              const curve = getScoreboardAdjustment(entry.compatibility_percent);
+              const finalScore = getScoreboardFinal(entry);
+
+              return (
+                <article
+                  key={entry.id}
+                  className={`rounded-lg border p-4 ${
+                    entry.active === false
+                      ? "border-red-400/30 bg-red-950/20"
+                      : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
+                        #{index + 1}
+                      </p>
+                      <h2 className="mt-2 break-words text-2xl font-black text-white">
+                        {entry.name}
+                      </h2>
+                      {entry.note && (
+                        <p className="mt-2 max-w-2xl leading-6 text-zinc-300">{entry.note}</p>
+                      )}
+                      {entry.active === false && (
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-red-200">
+                          Hidden from public view
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-md bg-white px-5 py-4 text-center text-zinc-950">
+                      <p className="text-4xl font-black">{finalScore}</p>
+                      <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-700">
+                        {getScoreboardTier(finalScore)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                    <div className="rounded-md bg-black/30 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                        F.I.N.E.
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">{entry.fine_score}</p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                        Compatibility
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">
+                        {entry.compatibility_percent}%
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                        Curve
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">
+                        {curve > 0 ? `+${curve}` : curve}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                        Manual
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">
+                        {Number(entry.manual_adjustment) > 0
+                          ? `+${entry.manual_adjustment}`
+                          : entry.manual_adjustment}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEditEntry(entry)}
+                        className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(entry.id)}
+                        className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+
+                  {confirmDelete === entry.id && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-red-400/40 bg-red-950/30 p-3">
+                      <span className="text-sm font-bold text-red-100">Delete this entry?</span>
+                      <button
+                        type="button"
+                        onClick={() => deleteEntry(entry.id)}
+                        className="rounded-md bg-red-400 px-3 py-2 text-sm font-black text-zinc-950"
+                      >
+                        Yes, Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete("")}
+                        className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function LoginPage({ navigate, isLanding = false }) {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
@@ -1498,6 +2035,14 @@ function LoginPage({ navigate, isLanding = false }) {
             Forgot password?
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => navigate("scoreboard")}
+          className="mt-5 w-full rounded-md border border-cyan-300/30 px-4 py-3 font-black text-cyan-100 transition hover:bg-cyan-950/40"
+        >
+          View Public Scoreboard
+        </button>
 
         <p className="mt-5 text-sm leading-6 text-zinc-400">
           Google and Facebook require Supabase Auth provider setup before those buttons work.
@@ -3904,6 +4449,7 @@ export default function App() {
       )}
       {view === "login" && <LoginPage navigate={navigate} />}
       {view === "tests" && <TestManager navigate={navigate} navigateToPath={navigateToPath} />}
+      {view === "scoreboard" && <ScoreboardPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} adminTest={adminTest} />}
       {view === "settings" && <SettingsPage navigate={navigate} />}
       <SiteFooter />
