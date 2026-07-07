@@ -2055,6 +2055,8 @@ function ScoreboardPage({ navigate }) {
           <div className="mt-8 grid gap-3">
             {displayedEntries.map((entry, index) => {
               const finalScore = getScoreboardFinal(entry);
+              const compatibilityAdjustment = getScoreboardAdjustment(entry);
+              const manualAdjustment = Number(entry.manual_adjustment) || 0;
               const fullName = entry.private_name || entry.name || entry.public_name || "";
               const publicName =
                 entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
@@ -2062,6 +2064,18 @@ function ScoreboardPage({ navigate }) {
               const latestLog = entryLogs[0];
               const adjustmentOpen = adjustmentDraft?.entry?.id === entry.id;
               const pendingAdjustment = adjustmentOpen ? Number(adjustmentDraft.delta) : 0;
+              const nameColorClass =
+                compatibilityAdjustment > 0
+                  ? "text-emerald-300"
+                  : compatibilityAdjustment < 0
+                    ? "text-red-300"
+                    : "text-white";
+              const manualMarker =
+                manualAdjustment > 0
+                  ? { label: "Manual boost", symbol: "↑", className: "text-emerald-300" }
+                  : manualAdjustment < 0
+                    ? { label: "Manual penalty", symbol: "↓", className: "text-red-300" }
+                    : { label: "No manual adjustment", symbol: "-", className: "text-zinc-500" };
 
               return (
                 <article
@@ -2074,11 +2088,27 @@ function ScoreboardPage({ navigate }) {
                 >
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:text-base">
                     <span className="font-black text-cyan-300">#{index + 1}</span>
-                    <span className="min-w-[4rem] text-xl font-black text-white">{publicName}</span>
+                    <span className="flex min-w-[4rem] flex-wrap items-center gap-2">
+                      <span className={`text-xl font-black ${nameColorClass}`}>{publicName}</span>
+                      {compatibilityAdjustment !== 0 && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${
+                            compatibilityAdjustment > 0
+                              ? "border-emerald-300/30 text-emerald-300"
+                              : "border-red-300/30 text-red-300"
+                          }`}
+                        >
+                          {compatibilityAdjustment > 0 ? "test boosted" : "test penalty"}
+                        </span>
+                      )}
+                    </span>
                     <span className="font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto">
                       POINTS{" "}
                       <span className="text-2xl text-white">
                         {formatScoreboardNumber(finalScore)}
+                      </span>
+                      <span className={`ml-2 text-lg ${manualMarker.className}`} aria-label={manualMarker.label}>
+                        {manualMarker.symbol}
                       </span>
                     </span>
 
