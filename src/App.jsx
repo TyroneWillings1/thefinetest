@@ -2092,7 +2092,7 @@ function ScoreboardPage({ navigate }) {
                       <span className={`text-xl font-black ${nameColorClass}`}>{publicName}</span>
                       {compatibilityAdjustment !== 0 && (
                         <span
-                          className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${
+                          className={`rounded-full border px-1.5 py-px text-[7px] font-black uppercase tracking-[0.1em] ${
                             compatibilityAdjustment > 0
                               ? "border-emerald-300/30 text-emerald-300"
                               : "border-red-300/30 text-red-300"
@@ -2107,7 +2107,7 @@ function ScoreboardPage({ navigate }) {
                       <span className="text-2xl text-white">
                         {formatScoreboardNumber(finalScore)}
                       </span>
-                      <span className={`ml-2 text-lg ${manualMarker.className}`} aria-label={manualMarker.label}>
+                      <span className={`ml-2 text-xl font-black ${manualMarker.className}`} aria-label={manualMarker.label}>
                         {manualMarker.symbol}
                       </span>
                     </span>
