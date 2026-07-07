@@ -1846,6 +1846,9 @@ function ScoreboardPage({ navigate }) {
               Brian's Top 15
             </p>
             <h1 className="mt-3 text-4xl font-black text-white">Scoreboard</h1>
+            <p className="mt-2 text-xs font-bold text-zinc-500">
+              <span className="text-yellow-300">★</span> = compatibility test score added
+            </p>
           </div>
 
           {isAdmin && (
@@ -2072,10 +2075,10 @@ function ScoreboardPage({ navigate }) {
                     : "text-white";
               const manualMarker =
                 manualAdjustment > 0
-                  ? { label: "Manual boost", symbol: "↑", className: "text-emerald-300" }
+                  ? { label: "Manual boost", symbol: "▲", className: "text-emerald-300" }
                   : manualAdjustment < 0
-                    ? { label: "Manual penalty", symbol: "↓", className: "text-red-300" }
-                    : { label: "No manual adjustment", symbol: "-", className: "text-zinc-500" };
+                    ? { label: "Manual penalty", symbol: "▼", className: "text-red-300" }
+                    : { label: "No manual adjustment", symbol: "━", className: "text-zinc-500" };
 
               return (
                 <article
@@ -2090,15 +2093,9 @@ function ScoreboardPage({ navigate }) {
                     <span className="font-black text-cyan-300">#{index + 1}</span>
                     <span className="flex min-w-[4rem] flex-wrap items-center gap-2">
                       <span className={`text-xl font-black ${nameColorClass}`}>{publicName}</span>
-                      {compatibilityAdjustment !== 0 && (
-                        <span
-                          className={`rounded-full border px-1.5 py-px text-[7px] font-black uppercase tracking-[0.1em] ${
-                            compatibilityAdjustment > 0
-                              ? "border-emerald-300/30 text-emerald-300"
-                              : "border-red-300/30 text-red-300"
-                          }`}
-                        >
-                          {compatibilityAdjustment > 0 ? "test boosted" : "test penalty"}
+                      {compatibilityAdjustment > 0 && (
+                        <span className="text-sm leading-none text-yellow-300" aria-label="Compatibility test score added">
+                          ★
                         </span>
                       )}
                     </span>
@@ -2107,7 +2104,7 @@ function ScoreboardPage({ navigate }) {
                       <span className="text-2xl text-white">
                         {formatScoreboardNumber(finalScore)}
                       </span>
-                      <span className={`ml-2 text-xl font-black ${manualMarker.className}`} aria-label={manualMarker.label}>
+                      <span className={`ml-2 text-2xl font-black leading-none ${manualMarker.className}`} aria-label={manualMarker.label}>
                         {manualMarker.symbol}
                       </span>
                     </span>
