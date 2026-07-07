@@ -1943,10 +1943,10 @@ function ScoreboardPage({ navigate }) {
               const fullName = entry.private_name || entry.name || entry.public_name || "";
               const publicName =
                 entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
-              const manualAdjustment = Number(entry.manual_adjustment) || 0;
               const entryLogs = historyLogs[entry.id] || [];
               const latestLog = entryLogs[0];
               const adjustmentOpen = adjustmentDraft?.entry?.id === entry.id;
+              const pendingAdjustment = adjustmentOpen ? Number(adjustmentDraft.delta) : 0;
 
               return (
                 <article
@@ -1979,7 +1979,7 @@ function ScoreboardPage({ navigate }) {
                           -
                         </button>
                         <span className="min-w-8 text-center text-sm font-black text-white">
-                          {manualAdjustment > 0 ? `+${manualAdjustment}` : manualAdjustment}
+                          {pendingAdjustment > 0 ? `+${pendingAdjustment}` : pendingAdjustment}
                         </span>
                         <button
                           type="button"
@@ -2025,22 +2025,22 @@ function ScoreboardPage({ navigate }) {
                   )}
 
                   {isAdmin && adjustmentOpen && (
-                    <div className="mt-3 rounded-md border border-cyan-300/25 bg-black/30 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
+                    <div className="mt-2 max-w-sm rounded-md border border-cyan-300/25 bg-black/30 p-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">
                         {adjustmentDraft.delta > 0 ? "Add point" : "Subtract point"}
                       </p>
                       <textarea
                         value={adjustmentDraft.note}
                         onChange={(event) => updateAdjustmentNote(event.target.value)}
-                        className="mt-3 min-h-20 w-full rounded-md border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm text-white"
+                        className="mt-2 min-h-14 w-full rounded-md border border-white/10 bg-zinc-950/80 px-2 py-2 text-xs text-white"
                         placeholder="Optional note"
                       />
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={adjustEntryPoints}
                           disabled={Boolean(adjustingId)}
-                          className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
+                          className="rounded-md bg-cyan-300 px-3 py-1.5 text-xs font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
                         >
                           {adjustingId ? "Saving..." : "Save"}
                         </button>
@@ -2048,7 +2048,7 @@ function ScoreboardPage({ navigate }) {
                           type="button"
                           onClick={closeAdjustmentPrompt}
                           disabled={Boolean(adjustingId)}
-                          className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-white transition hover:border-white/30 disabled:opacity-60"
+                          className="rounded-md border border-white/10 px-3 py-1.5 text-xs font-black text-white transition hover:border-white/30 disabled:opacity-60"
                         >
                           Cancel
                         </button>
