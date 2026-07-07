@@ -79,10 +79,10 @@ const LONG_SCOREBOARD_BONUS_BANDS = [
 
 const SHORT_SCOREBOARD_BONUS_BANDS = [
   { from: 0, to: 44, bonusFrom: 0, bonusTo: 0 },
-  { from: 45, to: 59, bonusFrom: 0, bonusTo: 4 },
-  { from: 60, to: 74, bonusFrom: 4, bonusTo: 9 },
-  { from: 75, to: 94, bonusFrom: 9, bonusTo: 20 },
-  { from: 95, to: 100, bonusFrom: 20, bonusTo: 25 },
+  { from: 45, to: 59, bonusFrom: 0, bonusTo: 2 },
+  { from: 60, to: 74, bonusFrom: 2, bonusTo: 4 },
+  { from: 75, to: 94, bonusFrom: 4, bonusTo: 8 },
+  { from: 95, to: 100, bonusFrom: 8, bonusTo: 10 },
 ];
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
