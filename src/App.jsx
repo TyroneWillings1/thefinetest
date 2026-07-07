@@ -2067,12 +2067,6 @@ function ScoreboardPage({ navigate }) {
               const latestLog = entryLogs[0];
               const adjustmentOpen = adjustmentDraft?.entry?.id === entry.id;
               const pendingAdjustment = adjustmentOpen ? Number(adjustmentDraft.delta) : 0;
-              const nameColorClass =
-                compatibilityAdjustment > 0
-                  ? "text-emerald-300"
-                  : compatibilityAdjustment < 0
-                    ? "text-red-300"
-                    : "text-white";
               const manualMarker =
                 manualAdjustment > 0
                   ? { label: "Manual boost", symbol: "▲", className: "text-emerald-300" }
@@ -2092,7 +2086,7 @@ function ScoreboardPage({ navigate }) {
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:text-base">
                     <span className="font-black text-cyan-300">#{index + 1}</span>
                     <span className="flex min-w-[4rem] flex-wrap items-center gap-2">
-                      <span className={`text-xl font-black ${nameColorClass}`}>{publicName}</span>
+                      <span className="text-xl font-black text-white">{publicName}</span>
                       {compatibilityAdjustment > 0 && (
                         <span className="text-sm leading-none text-yellow-300" aria-label="Compatibility test score added">
                           ★
