@@ -104,6 +104,17 @@ create table if not exists public.scoreboard_entries (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.scoreboard_adjustment_logs (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.scoreboard_entries(id) on delete cascade,
+  delta integer not null default 0,
+  note text default '',
+  previous_manual_adjustment integer not null default 0,
+  next_manual_adjustment integer not null default 0,
+  created_by uuid references auth.users(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
 create or replace function public.scoreboard_public_initials(full_name text)
 returns text
 language sql
@@ -259,6 +270,7 @@ alter table public.compatibility_profiles enable row level security;
 alter table public.compatibility_tests enable row level security;
 alter table public.scoreboard_admins enable row level security;
 alter table public.scoreboard_entries enable row level security;
+alter table public.scoreboard_adjustment_logs enable row level security;
 
 drop policy if exists "Public can read active questions" on public.compatibility_questions;
 create policy "Public can read active questions"
@@ -565,6 +577,30 @@ on public.scoreboard_entries
 for delete
 to authenticated
 using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Scoreboard admins can read adjustment logs" on public.scoreboard_adjustment_logs;
+create policy "Scoreboard admins can read adjustment logs"
+on public.scoreboard_adjustment_logs
+for select
+to authenticated
+using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Scoreboard admins can create adjustment logs" on public.scoreboard_adjustment_logs;
+create policy "Scoreboard admins can create adjustment logs"
+on public.scoreboard_adjustment_logs
+for insert
+to authenticated
+with check (
   exists (
     select 1 from public.scoreboard_admins a
     where a.user_id = auth.uid()

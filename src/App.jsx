@@ -493,14 +493,6 @@ function getScoreboardFinal(entry) {
   return fineScore + getScoreboardAdjustment(entry) + manualAdjustment;
 }
 
-function getScoreboardTier(score) {
-  if (score >= 140) return "Top Tier";
-  if (score >= 115) return "Serious Contender";
-  if (score >= 90) return "Worth Watching";
-  if (score >= 60) return "Questionable";
-  return "Low Priority";
-}
-
 function clampNumber(value, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return min;
@@ -1378,6 +1370,10 @@ function ScoreboardPage({ navigate }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adjustingId, setAdjustingId] = useState("");
+  const [adjustmentDraft, setAdjustmentDraft] = useState(null);
+  const [historyEntryId, setHistoryEntryId] = useState("");
+  const [historyLogs, setHistoryLogs] = useState({});
+  const [historyLoading, setHistoryLoading] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -1496,6 +1492,22 @@ function ScoreboardPage({ navigate }) {
     setForm(EMPTY_SCOREBOARD_ENTRY);
   };
 
+  const openAdjustmentPrompt = (entry, delta) => {
+    setError("");
+    setMessage("");
+    setAdjustmentDraft({
+      entry,
+      delta,
+      note: "",
+    });
+  };
+
+  const closeAdjustmentPrompt = () => {
+    if (!adjustingId) {
+      setAdjustmentDraft(null);
+    }
+  };
+
   const saveEntry = async (event) => {
     event.preventDefault();
     setError("");
@@ -1555,13 +1567,17 @@ function ScoreboardPage({ navigate }) {
     setMessage(editingId === "new" ? "Scoreboard entry added." : "Scoreboard entry saved.");
   };
 
-  const adjustEntryPoints = async (entry, delta) => {
+  const adjustEntryPoints = async () => {
+    if (!adjustmentDraft?.entry) return;
+
+    const { entry, delta, note } = adjustmentDraft;
     setError("");
     setMessage("");
     setAdjustingId(entry.id);
 
+    const previousManualAdjustment = Number(entry.manual_adjustment || 0);
     const nextManualAdjustment = clampNumber(
-      Number(entry.manual_adjustment || 0) + delta,
+      previousManualAdjustment + delta,
       -50,
       50
     );
@@ -1583,9 +1599,70 @@ function ScoreboardPage({ navigate }) {
       return;
     }
 
+    const { error: logError } = await supabase.from("scoreboard_adjustment_logs").insert({
+      entry_id: entry.id,
+      delta,
+      note: note.trim(),
+      previous_manual_adjustment: previousManualAdjustment,
+      next_manual_adjustment: nextManualAdjustment,
+    });
+
+    if (logError) {
+      setError(`Points changed, but the note did not save: ${logError.message}`);
+    }
+
     setEntries((current) =>
       current.map((item) => (item.id === data.id ? data : item))
     );
+    setHistoryLogs((current) => ({
+      ...current,
+      [entry.id]: [
+        {
+          id: `local-${Date.now()}`,
+          entry_id: entry.id,
+          delta,
+          note: note.trim(),
+          previous_manual_adjustment: previousManualAdjustment,
+          next_manual_adjustment: nextManualAdjustment,
+          created_at: new Date().toISOString(),
+        },
+        ...(current[entry.id] || []),
+      ],
+    }));
+    setAdjustmentDraft(null);
+    setMessage(delta > 0 ? "Point added." : "Point subtracted.");
+  };
+
+  const updateAdjustmentNote = (note) => {
+    setAdjustmentDraft((current) => (current ? { ...current, note } : current));
+  };
+
+  const toggleHistory = async (entryId) => {
+    if (historyEntryId === entryId) {
+      setHistoryEntryId("");
+      return;
+    }
+
+    setHistoryEntryId(entryId);
+    if (historyLogs[entryId]) return;
+
+    setHistoryLoading(entryId);
+    setError("");
+
+    const { data, error: historyError } = await supabase
+      .from("scoreboard_adjustment_logs")
+      .select("*")
+      .eq("entry_id", entryId)
+      .order("created_at", { ascending: false });
+
+    setHistoryLoading("");
+
+    if (historyError) {
+      setError(historyError.message);
+      return;
+    }
+
+    setHistoryLogs((current) => ({ ...current, [entryId]: data || [] }));
   };
 
   const deleteEntry = async (id) => {
@@ -1811,7 +1888,6 @@ function ScoreboardPage({ navigate }) {
           <div className="mt-8 grid gap-3">
             {rankedEntries.map((entry, index) => {
               const source = getScoreboardCompatSource(entry);
-              const curve = getScoreboardAdjustment(entry);
               const finalScore = getScoreboardFinal(entry);
               const shortPercent = getOptionalPercent(entry.short_compatibility_percent);
               const longPercent = getOptionalPercent(entry.long_compatibility_percent);
@@ -1819,130 +1895,88 @@ function ScoreboardPage({ navigate }) {
               const publicName =
                 entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
               const manualAdjustment = Number(entry.manual_adjustment) || 0;
+              const entryLogs = historyLogs[entry.id] || [];
 
               return (
                 <article
                   key={entry.id}
-                  className={`rounded-lg border px-4 py-3 ${
+                  className={`rounded-md border px-3 py-2 ${
                     entry.active === false
                       ? "border-red-400/30 bg-red-950/20"
                       : "border-white/10 bg-white/5"
                   }`}
                 >
-                  <div
-                    className={`grid gap-3 md:items-center ${
-                      isAdmin
-                        ? "md:grid-cols-[2.5rem_minmax(8rem,1fr)_auto_auto_auto_auto]"
-                        : "md:grid-cols-[2.5rem_minmax(8rem,1fr)_auto_auto_auto]"
-                    }`}
-                  >
-                    <p className="text-sm font-black text-cyan-300">#{index + 1}</p>
-
-                    <div className="min-w-0">
-                      <h2 className="break-words text-2xl font-black text-white">{publicName}</h2>
-                      {isAdmin && fullName && (
-                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">
-                          Full name: {fullName}
-                        </p>
-                      )}
-                      {entry.note && (
-                        <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-300">
-                          {entry.note}
-                        </p>
-                      )}
-                      {entry.active === false && (
-                        <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-red-200">
-                          Hidden from public view
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                        FINE
-                      </p>
-                      <p className="text-xl font-black text-white">{entry.fine_score}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                        Compat
-                      </p>
-                      <p className="text-xl font-black text-white">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:text-base">
+                    <span className="font-black text-cyan-300">#{index + 1}</span>
+                    <span className="min-w-[4rem] text-xl font-black text-white">{publicName}</span>
+                    <span className="font-black uppercase tracking-[0.12em] text-zinc-400">
+                      FINE <span className="text-white">{entry.fine_score}</span>
+                    </span>
+                    <span className="font-black uppercase tracking-[0.12em] text-zinc-400">
+                      COMPAT{" "}
+                      <span className="text-white">
                         {source.percent === null ? "--" : `${source.percent}%`}
-                      </p>
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                        {source.label}
-                        {isAdmin && (
-                          <>
-                            {" "}
-                            S:{shortPercent ?? "--"} L:{longPercent ?? "--"}
-                          </>
-                        )}
-                      </p>
-                    </div>
+                      </span>
+                    </span>
+                    <span className="font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto">
+                      POINTS <span className="text-2xl text-white">{finalScore}</span>
+                    </span>
 
                     {isAdmin && (
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                          Adjust
-                        </p>
-                        <div className="mt-1 flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => adjustEntryPoints(entry, -1)}
-                            disabled={adjustingId === entry.id}
-                            className="grid h-8 w-8 place-items-center rounded-md bg-red-400 text-lg font-black text-zinc-950 disabled:opacity-50"
-                            aria-label="Subtract one point"
-                          >
-                            -
-                          </button>
-                          <span className="min-w-8 text-center text-sm font-black text-white">
-                            {manualAdjustment > 0 ? `+${manualAdjustment}` : manualAdjustment}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => adjustEntryPoints(entry, 1)}
-                            disabled={adjustingId === entry.id}
-                            className="grid h-8 w-8 place-items-center rounded-md bg-emerald-400 text-lg font-black text-zinc-950 disabled:opacity-50"
-                            aria-label="Add one point"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
-                          Curve {curve > 0 ? `+${curve}` : curve}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="rounded-md bg-white px-4 py-3 text-center text-zinc-950 md:justify-self-end">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                        Points
-                      </p>
-                      <p className="text-3xl font-black">{finalScore}</p>
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-700">
-                        {getScoreboardTier(finalScore)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {isAdmin && (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openAdjustmentPrompt(entry, -1)}
+                          disabled={adjustingId === entry.id}
+                          className="grid h-8 w-8 place-items-center rounded-full bg-red-400 text-lg font-black text-zinc-950 disabled:opacity-50"
+                          aria-label="Subtract one point"
+                        >
+                          -
+                        </button>
+                        <span className="min-w-8 text-center text-sm font-black text-white">
+                          {manualAdjustment > 0 ? `+${manualAdjustment}` : manualAdjustment}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openAdjustmentPrompt(entry, 1)}
+                          disabled={adjustingId === entry.id}
+                          className="grid h-8 w-8 place-items-center rounded-full bg-emerald-400 text-lg font-black text-zinc-950 disabled:opacity-50"
+                          aria-label="Add one point"
+                        >
+                          +
+                        </button>
                       <button
                         type="button"
                         onClick={() => startEditEntry(entry)}
-                        className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                          className="rounded-md border border-cyan-300/30 px-3 py-2 text-xs font-black text-cyan-200 transition hover:bg-cyan-950/50"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(entry.id)}
-                        className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                          className="rounded-md border border-red-400/40 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-950/40"
                       >
                         Delete
                       </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleHistory(entry.id)}
+                          className="rounded-md border border-white/10 px-3 py-2 text-xs font-black text-zinc-200 transition hover:border-cyan-300/40"
+                        >
+                          History
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {isAdmin && (
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                      {fullName && <span>Full: {fullName}</span>}
+                      <span>Type: {source.label}</span>
+                      <span>S:{shortPercent ?? "--"}</span>
+                      <span>L:{longPercent ?? "--"}</span>
+                      {entry.active === false && <span className="text-red-200">Hidden</span>}
                     </div>
                   )}
 
@@ -1965,9 +1999,84 @@ function ScoreboardPage({ navigate }) {
                       </button>
                     </div>
                   )}
+
+                  {isAdmin && historyEntryId === entry.id && (
+                    <div className="mt-3 rounded-md border border-white/10 bg-black/30 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
+                        Adjustment History
+                      </p>
+                      {historyLoading === entry.id ? (
+                        <p className="mt-2 text-sm text-zinc-400">Loading history...</p>
+                      ) : entryLogs.length === 0 ? (
+                        <p className="mt-2 text-sm text-zinc-400">No adjustments logged yet.</p>
+                      ) : (
+                        <div className="mt-2 grid gap-2">
+                          {entryLogs.map((log) => (
+                            <div
+                              key={log.id}
+                              className="rounded-md border border-white/10 bg-zinc-950/70 p-2 text-sm text-zinc-200"
+                            >
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="font-black text-white">
+                                  {Number(log.delta) > 0 ? `+${log.delta}` : log.delta}
+                                </span>
+                                <span className="text-zinc-500">
+                                  {log.previous_manual_adjustment} to {log.next_manual_adjustment}
+                                </span>
+                                <span className="text-zinc-500">
+                                  {new Date(log.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                              {log.note && <p className="mt-1 leading-6">{log.note}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </article>
               );
             })}
+          </div>
+        )}
+
+        {adjustmentDraft && (
+          <div className="fixed inset-0 z-30 grid place-items-center bg-black/70 px-5">
+            <div className="w-full max-w-md rounded-lg border border-white/10 bg-zinc-950 p-5 shadow-2xl shadow-black">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+                Adjustment Note
+              </p>
+              <h2 className="mt-3 text-2xl font-black text-white">
+                {adjustmentDraft.delta > 0 ? "Add point" : "Subtract point"}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                Add a private note for this change. This history is only visible to you.
+              </p>
+              <textarea
+                value={adjustmentDraft.note}
+                onChange={(event) => updateAdjustmentNote(event.target.value)}
+                className="mt-4 min-h-28 w-full rounded-md border border-white/10 bg-black/40 px-3 py-3 text-white"
+                placeholder="What changed?"
+              />
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={adjustEntryPoints}
+                  disabled={Boolean(adjustingId)}
+                  className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white disabled:opacity-60"
+                >
+                  {adjustingId ? "Saving..." : "Save Adjustment"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeAdjustmentPrompt}
+                  disabled={Boolean(adjustingId)}
+                  className="rounded-md border border-white/10 px-5 py-3 font-black text-white transition hover:border-white/30 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </section>
