@@ -67,8 +67,6 @@ const EMPTY_SCOREBOARD_ENTRY = {
   active: true,
 };
 
-const MIN_FINE_SCORE_FOR_SCOREBOARD_BONUS = 50;
-
 const LONG_SCOREBOARD_BONUS_BANDS = [
   { from: 0, to: 19, bonusFrom: 0, bonusTo: 0 },
   { from: 20, to: 34, bonusFrom: 0, bonusTo: 2 },
@@ -485,11 +483,6 @@ function getScoreboardCompatSource(entry) {
     return { label: "Short", percent: shortPercent, bonusBands: SHORT_SCOREBOARD_BONUS_BANDS };
   }
 
-  const legacyPercent = getOptionalPercent(entry.compatibility_percent);
-  if (legacyPercent !== null) {
-    return { label: "Short", percent: legacyPercent, bonusBands: SHORT_SCOREBOARD_BONUS_BANDS };
-  }
-
   return { label: "None", percent: null, bonusBands: [] };
 }
 
@@ -512,9 +505,7 @@ function getScoreboardBandBonus(percent, bands = []) {
   );
 }
 
-function getScoreboardAdjustment(entry, fineScore = Number(entry.fine_score) || 0) {
-  if (fineScore < MIN_FINE_SCORE_FOR_SCOREBOARD_BONUS) return 0;
-
+function getScoreboardAdjustment(entry) {
   const source = getScoreboardCompatSource(entry);
   if (source.percent === null) return 0;
   return getScoreboardBandBonus(source.percent, source.bonusBands);
@@ -523,7 +514,7 @@ function getScoreboardAdjustment(entry, fineScore = Number(entry.fine_score) || 
 function getScoreboardFinal(entry) {
   const fineScore = Number(entry.fine_score) || 0;
   const manualAdjustment = Number(entry.manual_adjustment) || 0;
-  return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry, fineScore) + manualAdjustment);
+  return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry) + manualAdjustment);
 }
 
 function clampNumber(value, min, max) {
@@ -1600,7 +1591,7 @@ function ScoreboardPage({ navigate }) {
       fine_score: clampNumber(form.fine_score, 0, 150),
       short_compatibility_percent: shortPercent,
       long_compatibility_percent: longPercent,
-      compatibility_percent: longPercent ?? shortPercent ?? 60,
+      compatibility_percent: longPercent ?? shortPercent ?? 0,
       manual_adjustment: Math.round(Number(form.manual_adjustment) || 0),
       note: form.note.trim(),
       sort_order: clampNumber(form.sort_order, 1, 999),

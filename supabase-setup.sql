@@ -93,7 +93,7 @@ create table if not exists public.scoreboard_entries (
   private_name text default '',
   public_name text default '',
   fine_score integer not null default 0,
-  compatibility_percent integer not null default 60,
+  compatibility_percent integer not null default 0,
   short_compatibility_percent integer,
   long_compatibility_percent integer,
   manual_adjustment integer not null default 0,
@@ -142,6 +142,9 @@ alter table public.scoreboard_entries
 add column if not exists long_compatibility_percent integer;
 
 alter table public.scoreboard_entries
+alter column compatibility_percent set default 0;
+
+alter table public.scoreboard_entries
 add column if not exists archived boolean not null default false;
 
 alter table public.scoreboard_entries
@@ -150,8 +153,7 @@ add column if not exists archived_at timestamptz;
 update public.scoreboard_entries
 set private_name = coalesce(nullif(private_name, ''), name),
     public_name = coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name)),
-    name = coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name)),
-    long_compatibility_percent = coalesce(long_compatibility_percent, compatibility_percent);
+    name = coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name));
 
 drop view if exists public.scoreboard_public_entries;
 create view public.scoreboard_public_entries as
