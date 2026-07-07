@@ -2084,22 +2084,28 @@ function ScoreboardPage({ navigate }) {
                       : "border-white/10 bg-white/5"
                   }`}
                 >
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:text-base">
+                  <div
+                    className={
+                      isAdmin
+                        ? "flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:text-base"
+                        : "grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 text-sm sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:text-base"
+                    }
+                  >
                     <span className="font-black text-cyan-300">#{index + 1}</span>
-                    <span className="flex min-w-[4rem] flex-wrap items-center gap-2">
-                      <span className="text-xl font-black text-white">{displayName}</span>
+                    <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
+                      <span className="truncate text-lg font-black text-white sm:text-xl">{displayName}</span>
                       {compatibilityAdjustment > 0 && (
-                        <span className="text-sm leading-none text-yellow-300" aria-label="Compatibility test score added">
+                        <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
                           ★
                         </span>
                       )}
                     </span>
-                    <span className="font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto">
+                    <span className="whitespace-nowrap text-right text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto sm:text-base">
                       POINTS{" "}
-                      <span className="text-2xl text-white">
+                      <span className="text-xl text-white sm:text-2xl">
                         {formatScoreboardNumber(finalScore)}
                       </span>
-                      <span className={`ml-2 text-2xl font-black leading-none ${manualMarker.className}`} aria-label={manualMarker.label}>
+                      <span className={`ml-1 text-xl font-black leading-none sm:ml-2 sm:text-2xl ${manualMarker.className}`} aria-label={manualMarker.label}>
                         {manualMarker.symbol}
                       </span>
                     </span>
@@ -4868,7 +4874,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
 function SiteFooter() {
   return (
-    <footer className="fixed bottom-3 left-0 right-0 z-10 pointer-events-none px-5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">
+    <footer className="pointer-events-none px-5 pb-5 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-600 sm:text-[11px] sm:tracking-[0.18em]">
       Copyright 2026 thefinetest (TM) Brian Inc.
     </footer>
   );
