@@ -67,6 +67,8 @@ const EMPTY_SCOREBOARD_ENTRY = {
   active: true,
 };
 
+const MIN_FINE_SCORE_FOR_SCOREBOARD_BONUS = 50;
+
 const LONG_SCOREBOARD_BONUS_BANDS = [
   { from: 0, to: 19, bonusFrom: 0, bonusTo: 0 },
   { from: 20, to: 34, bonusFrom: 0, bonusTo: 2 },
@@ -510,7 +512,9 @@ function getScoreboardBandBonus(percent, bands = []) {
   );
 }
 
-function getScoreboardAdjustment(entry) {
+function getScoreboardAdjustment(entry, fineScore = Number(entry.fine_score) || 0) {
+  if (fineScore < MIN_FINE_SCORE_FOR_SCOREBOARD_BONUS) return 0;
+
   const source = getScoreboardCompatSource(entry);
   if (source.percent === null) return 0;
   return getScoreboardBandBonus(source.percent, source.bonusBands);
@@ -519,7 +523,7 @@ function getScoreboardAdjustment(entry) {
 function getScoreboardFinal(entry) {
   const fineScore = Number(entry.fine_score) || 0;
   const manualAdjustment = Number(entry.manual_adjustment) || 0;
-  return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry) + manualAdjustment);
+  return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry, fineScore) + manualAdjustment);
 }
 
 function clampNumber(value, min, max) {
