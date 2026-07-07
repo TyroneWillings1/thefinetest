@@ -67,6 +67,24 @@ const EMPTY_SCOREBOARD_ENTRY = {
   active: true,
 };
 
+const LONG_SCOREBOARD_BONUS_BANDS = [
+  { from: 0, to: 19, bonusFrom: 0, bonusTo: 0 },
+  { from: 20, to: 34, bonusFrom: 0, bonusTo: 2 },
+  { from: 35, to: 49, bonusFrom: 2, bonusTo: 5 },
+  { from: 50, to: 64, bonusFrom: 5, bonusTo: 9 },
+  { from: 65, to: 77, bonusFrom: 9, bonusTo: 14 },
+  { from: 78, to: 89, bonusFrom: 14, bonusTo: 20 },
+  { from: 90, to: 100, bonusFrom: 20, bonusTo: 25 },
+];
+
+const SHORT_SCOREBOARD_BONUS_BANDS = [
+  { from: 0, to: 44, bonusFrom: 0, bonusTo: 0 },
+  { from: 45, to: 59, bonusFrom: 0, bonusTo: 4 },
+  { from: 60, to: 74, bonusFrom: 4, bonusTo: 9 },
+  { from: 75, to: 94, bonusFrom: 9, bonusTo: 20 },
+  { from: 95, to: 100, bonusFrom: 20, bonusTo: 25 },
+];
+
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 const TEST_ID_PATTERN = /^[a-z0-9]{6,12}$/;
 
@@ -457,40 +475,52 @@ function getOptionalPercent(value) {
 function getScoreboardCompatSource(entry) {
   const longPercent = getOptionalPercent(entry.long_compatibility_percent);
   if (longPercent !== null) {
-    return { label: "Long", percent: longPercent, maxAdjustment: 25 };
+    return { label: "Long", percent: longPercent, bonusBands: LONG_SCOREBOARD_BONUS_BANDS };
   }
 
   const shortPercent = getOptionalPercent(entry.short_compatibility_percent);
   if (shortPercent !== null) {
-    return { label: "Short", percent: shortPercent, maxAdjustment: 10 };
+    return { label: "Short", percent: shortPercent, bonusBands: SHORT_SCOREBOARD_BONUS_BANDS };
   }
 
   const legacyPercent = getOptionalPercent(entry.compatibility_percent);
   if (legacyPercent !== null) {
-    return { label: "Short", percent: legacyPercent, maxAdjustment: 10 };
+    return { label: "Short", percent: legacyPercent, bonusBands: SHORT_SCOREBOARD_BONUS_BANDS };
   }
 
-  return { label: "None", percent: null, maxAdjustment: 0 };
+  return { label: "None", percent: null, bonusBands: [] };
+}
+
+function roundScoreboardNumber(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function formatScoreboardNumber(value) {
+  const rounded = roundScoreboardNumber(value);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function getScoreboardBandBonus(percent, bands = []) {
+  const band = bands.find((item) => percent >= item.from && percent <= item.to);
+  if (!band) return 0;
+  if (band.bonusFrom === band.bonusTo || band.from === band.to) return band.bonusFrom;
+
+  const progress = (percent - band.from) / (band.to - band.from);
+  return roundScoreboardNumber(
+    band.bonusFrom + progress * (band.bonusTo - band.bonusFrom)
+  );
 }
 
 function getScoreboardAdjustment(entry) {
   const source = getScoreboardCompatSource(entry);
-  if (source.percent === null || source.maxAdjustment === 0) return 0;
-
-  const fineQuality = Math.max(0, Math.min(150, Number(entry.fine_score) || 0)) / 150;
-  if (source.percent >= 60) {
-    const compatibilityLift = (source.percent - 60) / 40;
-    return Math.round(source.maxAdjustment * compatibilityLift * fineQuality);
-  }
-
-  const compatibilityDrop = (60 - source.percent) / 60;
-  return -Math.round(source.maxAdjustment * compatibilityDrop * (1 - fineQuality));
+  if (source.percent === null) return 0;
+  return getScoreboardBandBonus(source.percent, source.bonusBands);
 }
 
 function getScoreboardFinal(entry) {
   const fineScore = Number(entry.fine_score) || 0;
   const manualAdjustment = Number(entry.manual_adjustment) || 0;
-  return fineScore + getScoreboardAdjustment(entry) + manualAdjustment;
+  return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry) + manualAdjustment);
 }
 
 function clampNumber(value, min, max) {
@@ -1888,6 +1918,7 @@ function ScoreboardPage({ navigate }) {
           <div className="mt-8 grid gap-3">
             {rankedEntries.map((entry, index) => {
               const source = getScoreboardCompatSource(entry);
+              const compatibilityBonus = getScoreboardAdjustment(entry);
               const finalScore = getScoreboardFinal(entry);
               const shortPercent = getOptionalPercent(entry.short_compatibility_percent);
               const longPercent = getOptionalPercent(entry.long_compatibility_percent);
@@ -1919,7 +1950,10 @@ function ScoreboardPage({ navigate }) {
                       </span>
                     </span>
                     <span className="font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto">
-                      POINTS <span className="text-2xl text-white">{finalScore}</span>
+                      POINTS{" "}
+                      <span className="text-2xl text-white">
+                        {formatScoreboardNumber(finalScore)}
+                      </span>
                     </span>
 
                     {isAdmin && (
@@ -1974,6 +2008,7 @@ function ScoreboardPage({ navigate }) {
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
                       {fullName && <span>Full: {fullName}</span>}
                       <span>Type: {source.label}</span>
+                      <span>Bonus:+{formatScoreboardNumber(compatibilityBonus)}</span>
                       <span>S:{shortPercent ?? "--"}</span>
                       <span>L:{longPercent ?? "--"}</span>
                       {entry.active === false && <span className="text-red-200">Hidden</span>}
