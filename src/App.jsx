@@ -2084,34 +2084,33 @@ function ScoreboardPage({ navigate }) {
                       : "border-white/10 bg-white/5"
                   }`}
                 >
-                  <div
-                    className={
-                      isAdmin
-                        ? "flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:text-base"
-                        : "grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 text-sm sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:text-base"
-                    }
-                  >
-                    <span className="font-black text-cyan-300">#{index + 1}</span>
-                    <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
-                      <span className="truncate text-lg font-black text-white sm:text-xl">{displayName}</span>
-                      {compatibilityAdjustment > 0 && (
-                        <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
-                          ★
+                  {isAdmin ? (
+                    <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
+                      <div className="grid w-full grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 sm:flex-1">
+                        <span className="font-black text-cyan-300">#{index + 1}</span>
+                        <span className="flex min-w-0 items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
+                          <span className="truncate text-lg font-black text-white sm:text-xl">
+                            {displayName}
+                          </span>
+                          {compatibilityAdjustment > 0 && (
+                            <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
+                              ★
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                    <span className="whitespace-nowrap text-right text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto sm:text-base">
-                      POINTS{" "}
-                      <span className="text-xl text-white sm:text-2xl">
-                        {formatScoreboardNumber(finalScore)}
-                      </span>
-                      <span className={`ml-1 text-xl font-black leading-none sm:ml-2 sm:text-2xl ${manualMarker.className}`} aria-label={manualMarker.label}>
-                        {manualMarker.symbol}
-                      </span>
-                    </span>
+                        <span className="whitespace-nowrap text-right text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto sm:text-base">
+                          POINTS{" "}
+                          <span className="text-xl text-white sm:text-2xl">
+                            {formatScoreboardNumber(finalScore)}
+                          </span>
+                          <span className={`ml-1 text-xl font-black leading-none sm:ml-2 sm:text-2xl ${manualMarker.className}`} aria-label={manualMarker.label}>
+                            {manualMarker.symbol}
+                          </span>
+                        </span>
+                      </div>
 
-                    {isAdmin && (
-                      <>
+                      <div className="grid w-full gap-2 sm:w-auto sm:flex-none sm:flex sm:flex-wrap sm:items-center">
+                        <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => openAdjustmentPrompt(entry, -1)}
@@ -2133,13 +2132,16 @@ function ScoreboardPage({ navigate }) {
                         >
                           +
                         </button>
-                      <button
-                        type="button"
-                        onClick={() => startEditEntry(entry)}
-                          className="rounded-md border border-cyan-300/30 px-3 py-2 text-xs font-black text-cyan-200 transition hover:bg-cyan-950/50"
-                      >
-                        Edit
-                      </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => startEditEntry(entry)}
+                            className="rounded-md border border-cyan-300/30 px-3 py-2 text-xs font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                          >
+                            Edit
+                          </button>
                         {showArchive ? (
                           <button
                             type="button"
@@ -2171,9 +2173,31 @@ function ScoreboardPage({ navigate }) {
                         >
                           History
                         </button>
-                      </>
-                    )}
-                  </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 text-sm sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:text-base">
+                      <span className="font-black text-cyan-300">#{index + 1}</span>
+                      <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
+                        <span className="truncate text-lg font-black text-white sm:text-xl">{displayName}</span>
+                        {compatibilityAdjustment > 0 && (
+                          <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
+                            ★
+                          </span>
+                        )}
+                      </span>
+                      <span className="whitespace-nowrap text-right text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto sm:text-base">
+                        POINTS{" "}
+                        <span className="text-xl text-white sm:text-2xl">
+                          {formatScoreboardNumber(finalScore)}
+                        </span>
+                        <span className={`ml-1 text-xl font-black leading-none sm:ml-2 sm:text-2xl ${manualMarker.className}`} aria-label={manualMarker.label}>
+                          {manualMarker.symbol}
+                        </span>
+                      </span>
+                    </div>
+                  )}
 
                   {isAdmin && latestLog && historyEntryId !== entry.id && !adjustmentOpen && (
                     <div className="mt-2 text-xs leading-5 text-zinc-400">
