@@ -100,6 +100,8 @@ create table if not exists public.scoreboard_entries (
   note text default '',
   sort_order integer not null default 1,
   active boolean not null default true,
+  archived boolean not null default false,
+  archived_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -139,6 +141,12 @@ add column if not exists short_compatibility_percent integer;
 alter table public.scoreboard_entries
 add column if not exists long_compatibility_percent integer;
 
+alter table public.scoreboard_entries
+add column if not exists archived boolean not null default false;
+
+alter table public.scoreboard_entries
+add column if not exists archived_at timestamptz;
+
 update public.scoreboard_entries
 set private_name = coalesce(nullif(private_name, ''), name),
     public_name = coalesce(nullif(public_name, ''), public.scoreboard_public_initials(name)),
@@ -160,7 +168,8 @@ select
   created_at,
   updated_at
 from public.scoreboard_entries
-where active = true;
+where active = true
+  and archived = false;
 
 grant select on public.scoreboard_public_entries to anon, authenticated;
 
@@ -601,6 +610,18 @@ on public.scoreboard_adjustment_logs
 for insert
 to authenticated
 with check (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Scoreboard admins can delete adjustment logs" on public.scoreboard_adjustment_logs;
+create policy "Scoreboard admins can delete adjustment logs"
+on public.scoreboard_adjustment_logs
+for delete
+to authenticated
+using (
   exists (
     select 1 from public.scoreboard_admins a
     where a.user_id = auth.uid()

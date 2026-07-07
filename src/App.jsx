@@ -1403,6 +1403,7 @@ function ScoreboardPage({ navigate }) {
   const [historyEntryId, setHistoryEntryId] = useState("");
   const [historyLogs, setHistoryLogs] = useState({});
   const [historyLoading, setHistoryLoading] = useState("");
+  const [showArchive, setShowArchive] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -1503,6 +1504,15 @@ function ScoreboardPage({ navigate }) {
       }),
     [entries]
   );
+
+  const activeEntries = rankedEntries.filter((entry) => !entry.archived);
+  const archivedEntries = rankedEntries.filter((entry) => entry.archived);
+  const displayedEntries =
+    isAdmin && showArchive
+      ? archivedEntries
+      : isAdmin
+        ? activeEntries
+        : activeEntries.slice(0, 15);
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1656,13 +1666,17 @@ function ScoreboardPage({ navigate }) {
       return;
     }
 
-    const { error: logError } = await supabase.from("scoreboard_adjustment_logs").insert({
-      entry_id: entry.id,
-      delta,
-      note: note.trim(),
-      previous_manual_adjustment: previousManualAdjustment,
-      next_manual_adjustment: nextManualAdjustment,
-    });
+    const { data: logData, error: logError } = await supabase
+      .from("scoreboard_adjustment_logs")
+      .insert({
+        entry_id: entry.id,
+        delta,
+        note: note.trim(),
+        previous_manual_adjustment: previousManualAdjustment,
+        next_manual_adjustment: nextManualAdjustment,
+      })
+      .select("*")
+      .single();
 
     if (logError) {
       setError(`Points changed, but the note did not save: ${logError.message}`);
@@ -1674,7 +1688,7 @@ function ScoreboardPage({ navigate }) {
     setHistoryLogs((current) => ({
       ...current,
       [entry.id]: [
-        {
+        logData || {
           id: `local-${Date.now()}`,
           entry_id: entry.id,
           delta,
@@ -1738,6 +1752,94 @@ function ScoreboardPage({ navigate }) {
     setMessage("Scoreboard entry deleted.");
   };
 
+  const archiveEntry = async (entry) => {
+    setError("");
+    setMessage("");
+
+    const archivedAt = new Date().toISOString();
+    const { data, error: archiveError } = await supabase
+      .from("scoreboard_entries")
+      .update({ archived: true, archived_at: archivedAt, active: false, updated_at: archivedAt })
+      .eq("id", entry.id)
+      .select("*")
+      .single();
+
+    if (archiveError) {
+      setError(archiveError.message);
+      return;
+    }
+
+    setEntries((current) => current.map((item) => (item.id === data.id ? data : item)));
+    setConfirmDelete("");
+    if (editingId === entry.id) cancelEdit();
+    setMessage("Entry archived.");
+  };
+
+  const restoreEntry = async (entry) => {
+    setError("");
+    setMessage("");
+
+    const { data, error: restoreError } = await supabase
+      .from("scoreboard_entries")
+      .update({
+        archived: false,
+        archived_at: null,
+        active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", entry.id)
+      .select("*")
+      .single();
+
+    if (restoreError) {
+      setError(restoreError.message);
+      return;
+    }
+
+    setEntries((current) => current.map((item) => (item.id === data.id ? data : item)));
+    setMessage("Entry restored.");
+  };
+
+  const deleteAdjustmentLog = async (entry, log) => {
+    setError("");
+    setMessage("");
+
+    const previousManualAdjustment = Number(entry.manual_adjustment || 0);
+    const nextManualAdjustment = previousManualAdjustment - Number(log.delta || 0);
+
+    const { data, error: updateError } = await supabase
+      .from("scoreboard_entries")
+      .update({
+        manual_adjustment: nextManualAdjustment,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", entry.id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    const { error: deleteLogError } = await supabase
+      .from("scoreboard_adjustment_logs")
+      .delete()
+      .eq("id", log.id);
+
+    if (deleteLogError) {
+      setError(`Points were reversed, but the history entry did not delete: ${deleteLogError.message}`);
+      return;
+    }
+
+    setEntries((current) => current.map((item) => (item.id === data.id ? data : item)));
+    setHistoryLogs((current) => ({
+      ...current,
+      [entry.id]: (current[entry.id] || []).filter((item) => item.id !== log.id),
+    }));
+    setMessage("History entry deleted and points reversed.");
+  };
+
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
       <BackButton onClick={() => (session ? navigate("dashboard") : navigate("landing"))} />
@@ -1752,13 +1854,26 @@ function ScoreboardPage({ navigate }) {
           </div>
 
           {isAdmin && (
-            <button
-              type="button"
-              onClick={startNewEntry}
-              className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
-            >
-              Add Entry
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setShowArchive((current) => !current)}
+                className={`rounded-md border px-5 py-3 font-black transition ${
+                  showArchive
+                    ? "border-cyan-300 bg-cyan-300 text-zinc-950"
+                    : "border-white/10 text-zinc-200 hover:border-cyan-300/40"
+                }`}
+              >
+                Archive
+              </button>
+              <button
+                type="button"
+                onClick={startNewEntry}
+                className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
+              >
+                Add Entry
+              </button>
+            </div>
           )}
         </div>
 
@@ -1937,13 +2052,13 @@ function ScoreboardPage({ navigate }) {
 
         {loading ? (
           <p className="mt-8 text-zinc-300">Loading scoreboard...</p>
-        ) : rankedEntries.length === 0 ? (
+        ) : displayedEntries.length === 0 ? (
           <p className="mt-8 rounded-lg border border-white/10 bg-white/5 p-5 text-zinc-300">
-            No scoreboard entries yet.
+            {showArchive ? "No archived entries yet." : "No scoreboard entries yet."}
           </p>
         ) : (
           <div className="mt-8 grid gap-3">
-            {rankedEntries.map((entry, index) => {
+            {displayedEntries.map((entry, index) => {
               const finalScore = getScoreboardFinal(entry);
               const fullName = entry.private_name || entry.name || entry.public_name || "";
               const publicName =
@@ -2002,13 +2117,30 @@ function ScoreboardPage({ navigate }) {
                       >
                         Edit
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete(entry.id)}
+                        {showArchive ? (
+                          <button
+                            type="button"
+                            onClick={() => restoreEntry(entry)}
+                            className="rounded-md border border-emerald-300/40 px-3 py-2 text-xs font-black text-emerald-200 transition hover:bg-emerald-950/40"
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => archiveEntry(entry)}
+                            className="rounded-md border border-zinc-500/40 px-3 py-2 text-xs font-black text-zinc-200 transition hover:bg-white/10"
+                          >
+                            Archive
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(entry.id)}
                           className="rounded-md border border-red-400/40 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-950/40"
-                      >
-                        Delete
-                      </button>
+                        >
+                          Delete
+                        </button>
                         <button
                           type="button"
                           onClick={() => toggleHistory(entry.id)}
@@ -2107,6 +2239,13 @@ function ScoreboardPage({ navigate }) {
                                 <span className="text-zinc-500">
                                   {new Date(log.created_at).toLocaleString()}
                                 </span>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteAdjustmentLog(entry, log)}
+                                  className="ml-auto rounded-md border border-red-400/40 px-2 py-1 text-xs font-black text-red-200 transition hover:bg-red-950/40"
+                                >
+                                  Delete
+                                </button>
                               </div>
                               {log.note && <p className="mt-1 leading-6">{log.note}</p>}
                             </div>
