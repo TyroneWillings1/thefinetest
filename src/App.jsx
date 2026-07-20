@@ -1507,7 +1507,7 @@ function ScoreboardPage({ navigate }) {
       ? archivedEntries
       : isAdmin
         ? activeEntries
-        : activeEntries.slice(0, 15);
+        : activeEntries.slice(0, 20);
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1842,10 +1842,7 @@ function ScoreboardPage({ navigate }) {
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
-              Brian's Top 15
-            </p>
-            <h1 className="mt-3 text-4xl font-black text-white">Scoreboard</h1>
+            <h1 className="text-4xl font-black text-white">Brian's Top 20</h1>
             <p className="mt-2 text-xs font-bold text-zinc-500">
               <span className="text-yellow-300">★</span> = compatibility test score added
             </p>
