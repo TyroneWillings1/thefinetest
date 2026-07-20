@@ -2074,22 +2074,51 @@ function ScoreboardPage({ navigate }) {
                   : manualAdjustment < 0
                     ? { label: "Manual penalty", symbol: "▼", className: "text-red-300" }
                     : { label: "No manual adjustment", symbol: "━", className: "text-zinc-500" };
+              const rankAccent =
+                index === 0
+                  ? {
+                      card:
+                        "border-amber-300/55 bg-[linear-gradient(90deg,rgba(251,191,36,0.18),rgba(255,255,255,0.07)_42%,rgba(255,255,255,0.05))] shadow-[0_0_22px_rgba(251,191,36,0.18)]",
+                      rank: "text-amber-200",
+                      name: "text-white",
+                      score: "text-amber-100",
+                    }
+                  : index < 3
+                    ? {
+                        card:
+                          "border-cyan-300/40 bg-[linear-gradient(90deg,rgba(34,211,238,0.13),rgba(168,85,247,0.10)_46%,rgba(255,255,255,0.05))] shadow-[0_0_18px_rgba(34,211,238,0.12)]",
+                        rank: "text-cyan-200",
+                        name: "text-white",
+                        score: "text-cyan-50",
+                      }
+                    : index < 5
+                      ? {
+                          card:
+                            "border-emerald-300/35 bg-[linear-gradient(90deg,rgba(52,211,153,0.11),rgba(250,204,21,0.08)_48%,rgba(255,255,255,0.05))]",
+                          rank: "text-emerald-200",
+                          name: "text-white",
+                          score: "text-emerald-50",
+                        }
+                      : {
+                          card: entry.active === false
+                            ? "border-red-400/30 bg-red-950/20"
+                            : "border-white/10 bg-white/5",
+                          rank: "text-cyan-300",
+                          name: "text-white",
+                          score: "text-white",
+                        };
 
               return (
                 <article
                   key={entry.id}
-                  className={`rounded-md border px-3 py-2 ${
-                    entry.active === false
-                      ? "border-red-400/30 bg-red-950/20"
-                      : "border-white/10 bg-white/5"
-                  }`}
+                  className={`rounded-md border px-3 py-2 transition ${rankAccent.card}`}
                 >
                   {isAdmin ? (
                     <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
                       <div className="grid w-full grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 sm:flex-1">
-                        <span className="font-black text-cyan-300">#{index + 1}</span>
+                        <span className={`font-black ${rankAccent.rank}`}>#{index + 1}</span>
                         <span className="flex min-w-0 items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
-                          <span className="truncate text-lg font-black text-white sm:text-xl">
+                          <span className={`truncate text-lg font-black sm:text-xl ${rankAccent.name}`}>
                             {displayName}
                           </span>
                           {compatibilityAdjustment > 0 && (
@@ -2100,7 +2129,7 @@ function ScoreboardPage({ navigate }) {
                         </span>
                         <span className="whitespace-nowrap text-right text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto sm:text-base">
                           POINTS{" "}
-                          <span className="text-xl text-white sm:text-2xl">
+                          <span className={`text-xl sm:text-2xl ${rankAccent.score}`}>
                             {formatScoreboardNumber(finalScore)}
                           </span>
                           <span className={`ml-1 text-xl font-black leading-none sm:ml-2 sm:text-2xl ${manualMarker.className}`} aria-label={manualMarker.label}>
@@ -2178,9 +2207,9 @@ function ScoreboardPage({ navigate }) {
                     </div>
                   ) : (
                     <div className="grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 text-sm sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:text-base">
-                      <span className="font-black text-cyan-300">#{index + 1}</span>
+                      <span className={`font-black ${rankAccent.rank}`}>#{index + 1}</span>
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
-                        <span className="truncate text-lg font-black text-white sm:text-xl">{displayName}</span>
+                        <span className={`truncate text-lg font-black sm:text-xl ${rankAccent.name}`}>{displayName}</span>
                         {compatibilityAdjustment > 0 && (
                           <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
                             ★
@@ -2189,7 +2218,7 @@ function ScoreboardPage({ navigate }) {
                       </span>
                       <span className="whitespace-nowrap text-right text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:ml-auto sm:text-base">
                         POINTS{" "}
-                        <span className="text-xl text-white sm:text-2xl">
+                        <span className={`text-xl sm:text-2xl ${rankAccent.score}`}>
                           {formatScoreboardNumber(finalScore)}
                         </span>
                         <span className={`ml-1 text-xl font-black leading-none sm:ml-2 sm:text-2xl ${manualMarker.className}`} aria-label={manualMarker.label}>
