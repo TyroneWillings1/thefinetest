@@ -2468,14 +2468,14 @@ function ScoreboardPage({ navigate }) {
 
       </section>
       <div className="pointer-events-none fixed -left-[9999px] top-0" aria-hidden="true">
-        <div ref={shareBoardRef} className="w-[900px] bg-zinc-950 p-10 text-white">
-          <div className="rounded-lg border border-white/10 bg-zinc-950/95 p-8 shadow-2xl shadow-black/50">
-            <h2 className="text-5xl font-black">Brian's Top 20</h2>
-            <p className="mt-3 text-sm font-bold text-zinc-500">
-              <span className="text-yellow-300">★</span> = compatibility test score added
+        <div ref={shareBoardRef} className="scoreboard-export">
+          <div className="scoreboard-export-card">
+            <h2>Brian's Top 20</h2>
+            <p className="scoreboard-export-legend">
+              <span>*</span> = compatibility test score added
             </p>
 
-            <div className="mt-8 grid gap-3">
+            <div className="scoreboard-export-list">
               {shareEntries.map((entry, index) => {
                 const finalScore = getScoreboardFinal(entry);
                 const compatibilityAdjustment = getScoreboardAdjustment(entry);
@@ -2484,6 +2484,7 @@ function ScoreboardPage({ navigate }) {
                 const publicName =
                   entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
                 const rankAccent = getScoreboardRankAccent(index, entry.active);
+                const exportRankClass = index < 5 ? `rank-${index + 1}` : "";
                 const rankLabel = `#${index + 1}`;
                 const rankDisplay = index === 0 ? (
                   <span className={`flex flex-col items-center leading-none ${rankAccent.rank}`}>
@@ -2503,32 +2504,40 @@ function ScoreboardPage({ navigate }) {
                 return (
                   <article
                     key={`share-${entry.id}`}
-                    className={`grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-4 rounded-md border px-4 py-3 ${rankAccent.card}`}
+                    className={`scoreboard-export-row ${exportRankClass}`}
                   >
-                    <span className={`font-black ${rankAccent.rank}`}>{rankDisplay}</span>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className={`truncate text-2xl font-black ${rankAccent.name}`}>
+                    <span className="scoreboard-export-rank">
+                      {index === 0 && <span className="scoreboard-export-crown">♛</span>}
+                      {rankLabel}
+                    </span>
+                    <span className="scoreboard-export-name">
+                      <span>
                         {publicName}
                       </span>
                       {compatibilityAdjustment > 0 && (
-                        <span className="shrink-0 text-sm leading-none text-yellow-300">★</span>
+                        <span className="scoreboard-export-star">*</span>
                       )}
                     </span>
-                    <span className="whitespace-nowrap text-right text-sm font-black uppercase tracking-[0.12em] text-zinc-400">
-                      POINTS{" "}
-                      <span className={`text-3xl ${rankAccent.score}`}>
+                    <span className="scoreboard-export-points">
+                      <span>Points</span>
+                      <strong>
                         {formatScoreboardNumber(finalScore)}
-                      </span>
-                      <span className={`ml-2 text-2xl font-black leading-none ${manualMarker.className}`}>
-                        {manualMarker.symbol}
-                      </span>
+                      </strong>
+                      <b
+                        className={
+                          manualAdjustment > 0 ? "up" : manualAdjustment < 0 ? "down" : "flat"
+                        }
+                        aria-label={manualMarker.label}
+                      >
+                        {manualAdjustment > 0 ? "▲" : manualAdjustment < 0 ? "▼" : "━"}
+                      </b>
                     </span>
                   </article>
                 );
               })}
             </div>
 
-            <p className="mt-8 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">
+            <p className="scoreboard-export-footer">
               Copyright 2026 thefinetest (TM) Brian Inc.
             </p>
           </div>

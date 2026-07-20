@@ -81,6 +81,159 @@
     width: 40%;
   }
 
+  .scoreboard-export {
+    background: #050505;
+    color: #ffffff;
+    font-family: Arial, Helvetica, sans-serif;
+    padding: 36px;
+    width: 900px;
+  }
+
+  .scoreboard-export-card {
+    background: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 36px;
+  }
+
+  .scoreboard-export h2 {
+    color: #ffffff;
+    font-size: 44px;
+    font-weight: 900;
+    line-height: 1;
+    margin: 0;
+  }
+
+  .scoreboard-export-legend {
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: 700;
+    margin: 12px 0 0;
+  }
+
+  .scoreboard-export-legend span,
+  .scoreboard-export-star {
+    color: #fde047;
+    font-weight: 900;
+  }
+
+  .scoreboard-export-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 30px;
+  }
+
+  .scoreboard-export-row {
+    align-items: center;
+    background: #18181b;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    min-height: 54px;
+    padding: 10px 16px;
+  }
+
+  .scoreboard-export-row.rank-1 {
+    background: linear-gradient(90deg, rgba(250, 204, 21, 0.28), #18181b 58%);
+    border-color: rgba(250, 204, 21, 0.9);
+  }
+
+  .scoreboard-export-row.rank-2 {
+    background: linear-gradient(90deg, rgba(250, 204, 21, 0.20), #18181b 58%);
+    border-color: rgba(250, 204, 21, 0.75);
+  }
+
+  .scoreboard-export-row.rank-3 {
+    background: linear-gradient(90deg, rgba(250, 204, 21, 0.15), #18181b 58%);
+    border-color: rgba(250, 204, 21, 0.6);
+  }
+
+  .scoreboard-export-row.rank-4 {
+    background: linear-gradient(90deg, rgba(250, 204, 21, 0.11), #18181b 58%);
+    border-color: rgba(250, 204, 21, 0.45);
+  }
+
+  .scoreboard-export-row.rank-5 {
+    background: linear-gradient(90deg, rgba(250, 204, 21, 0.08), #18181b 58%);
+    border-color: rgba(250, 204, 21, 0.35);
+  }
+
+  .scoreboard-export-rank {
+    color: #67e8f9;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .scoreboard-export-crown {
+    color: #fde047;
+    display: block;
+    font-size: 15px;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .scoreboard-export-name {
+    align-items: center;
+    color: #ffffff;
+    display: flex;
+    font-size: 23px;
+    font-weight: 900;
+    gap: 8px;
+    letter-spacing: 0;
+    line-height: 1;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .scoreboard-export-points {
+    align-items: baseline;
+    color: #a1a1aa;
+    display: flex;
+    font-size: 14px;
+    font-weight: 900;
+    gap: 10px;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .scoreboard-export-points strong {
+    color: #ffffff;
+    font-size: 31px;
+    letter-spacing: 0;
+  }
+
+  .scoreboard-export-points b {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 0;
+  }
+
+  .scoreboard-export-points .up {
+    color: #6ee7b7;
+  }
+
+  .scoreboard-export-points .down {
+    color: #fda4af;
+  }
+
+  .scoreboard-export-points .flat {
+    color: #71717a;
+  }
+
+  .scoreboard-export-footer {
+    color: #52525b;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    margin: 30px 0 0;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-soft-in,
     .top-rank-shimmer::before {
