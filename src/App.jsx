@@ -2078,35 +2078,43 @@ function ScoreboardPage({ navigate }) {
                 index === 0
                   ? {
                       card:
-                        "border-amber-300/55 bg-[linear-gradient(90deg,rgba(251,191,36,0.18),rgba(255,255,255,0.07)_42%,rgba(255,255,255,0.05))] shadow-[0_0_22px_rgba(251,191,36,0.18)]",
+                        "border-amber-300/65 bg-[linear-gradient(90deg,rgba(251,191,36,0.16),rgba(255,255,255,0.06)_40%,rgba(255,255,255,0.04))] shadow-[0_0_22px_rgba(251,191,36,0.16)]",
                       rank: "text-amber-200",
                       name: "text-white",
                       score: "text-amber-100",
                     }
-                  : index < 3
+                  : index === 1
                     ? {
                         card:
-                          "border-cyan-300/40 bg-[linear-gradient(90deg,rgba(34,211,238,0.13),rgba(168,85,247,0.10)_46%,rgba(255,255,255,0.05))] shadow-[0_0_18px_rgba(34,211,238,0.12)]",
-                        rank: "text-cyan-200",
+                          "border-zinc-200/45 bg-[linear-gradient(90deg,rgba(228,228,231,0.13),rgba(255,255,255,0.055)_42%,rgba(255,255,255,0.04))]",
+                        rank: "text-zinc-100",
                         name: "text-white",
-                        score: "text-cyan-50",
+                        score: "text-white",
                       }
-                    : index < 5
+                    : index === 2
                       ? {
                           card:
-                            "border-emerald-300/35 bg-[linear-gradient(90deg,rgba(52,211,153,0.11),rgba(250,204,21,0.08)_48%,rgba(255,255,255,0.05))]",
-                          rank: "text-emerald-200",
+                            "border-orange-300/45 bg-[linear-gradient(90deg,rgba(251,146,60,0.13),rgba(255,255,255,0.055)_42%,rgba(255,255,255,0.04))]",
+                          rank: "text-orange-200",
                           name: "text-white",
-                          score: "text-emerald-50",
+                          score: "text-orange-50",
                         }
-                      : {
-                          card: entry.active === false
-                            ? "border-red-400/30 bg-red-950/20"
-                            : "border-white/10 bg-white/5",
-                          rank: "text-cyan-300",
-                          name: "text-white",
-                          score: "text-white",
-                        };
+                      : index < 5
+                        ? {
+                            card:
+                              "border-cyan-300/35 bg-[linear-gradient(90deg,rgba(34,211,238,0.10),rgba(255,255,255,0.05)_42%,rgba(255,255,255,0.04))]",
+                            rank: "text-cyan-200",
+                            name: "text-white",
+                            score: "text-cyan-50",
+                          }
+                        : {
+                            card: entry.active === false
+                              ? "border-red-400/30 bg-red-950/20"
+                              : "border-white/10 bg-white/5",
+                            rank: "text-cyan-300",
+                            name: "text-white",
+                            score: "text-white",
+                          };
 
               return (
                 <article
