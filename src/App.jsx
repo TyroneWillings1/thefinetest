@@ -927,6 +927,12 @@ function Hub({ navigate }) {
         className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-cyan-100"
       />
 
+      <img
+        src="/logo.svg"
+        alt=""
+        className="mx-auto mb-8 h-16 w-16 rounded-[1.4rem] shadow-2xl shadow-cyan-950/30"
+      />
+
       <section className="grid gap-4">
         <button
           type="button"

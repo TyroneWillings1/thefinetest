@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="thefinetest logo">
+  <rect width="512" height="512" rx="118" fill="#050505"/>
+  <rect x="34" y="34" width="444" height="444" rx="94" fill="none" stroke="#18181b" stroke-width="14"/>
+  <path
+    d="M178 162 88 252c-3 3-3 6 0 9l90 90"
+    fill="none"
+    stroke="#f8fafc"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="58"
+  />
+  <path
+    d="M334 162 424 252c3 3 3 6 0 9l-90 90"
+    fill="none"
+    stroke="#f8fafc"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="58"
+  />
+  <path
+    d="M260 175c6 42 24 68 58 80-35 14-54 41-61 82-7-41-26-68-61-82 35-12 54-39 64-80Z"
+    fill="#22d3ee"
+  />
+  <path
+    d="M254 226c4 15 12 24 24 29-12 5-20 14-24 29-5-15-13-24-25-29 12-5 20-14 25-29Z"
+    fill="#050505"
+    opacity="0.18"
+  />
+</svg>
