@@ -57,8 +57,33 @@
     animation: soft-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
+  @keyframes top-rank-sheen {
+    from {
+      transform: translateX(-130%) skewX(-18deg);
+    }
+    to {
+      transform: translateX(230%) skewX(-18deg);
+    }
+  }
+
+  .top-rank-shimmer::before {
+    animation: top-rank-sheen 4.8s ease-in-out infinite;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.18),
+      transparent
+    );
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    width: 40%;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .animate-soft-in {
+    .animate-soft-in,
+    .top-rank-shimmer::before {
       animation: none;
     }
 

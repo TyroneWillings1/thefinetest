@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const supabase = createClient(
   "https://cwchbeqfhxdsumbrtgen.supabase.co",
@@ -517,6 +517,65 @@ function getScoreboardFinal(entry) {
   return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry) + manualAdjustment);
 }
 
+function getScoreboardRankAccent(index, active = true) {
+  if (index === 0) {
+    return {
+      card:
+        "relative overflow-hidden top-rank-shimmer border-yellow-300/95 bg-[linear-gradient(90deg,rgba(250,204,21,0.34),rgba(255,255,255,0.09)_42%,rgba(255,255,255,0.045))] shadow-[0_0_32px_rgba(250,204,21,0.34)]",
+      rank: "text-yellow-200",
+      name: "text-white",
+      score: "text-yellow-100",
+    };
+  }
+
+  if (index === 1) {
+    return {
+      card:
+        "border-yellow-300/80 bg-[linear-gradient(90deg,rgba(250,204,21,0.24),rgba(255,255,255,0.075)_42%,rgba(255,255,255,0.04))] shadow-[0_0_22px_rgba(250,204,21,0.20)]",
+      rank: "text-yellow-200",
+      name: "text-white",
+      score: "text-yellow-50",
+    };
+  }
+
+  if (index === 2) {
+    return {
+      card:
+        "border-yellow-300/65 bg-[linear-gradient(90deg,rgba(250,204,21,0.17),rgba(255,255,255,0.064)_42%,rgba(255,255,255,0.04))]",
+      rank: "text-yellow-300",
+      name: "text-white",
+      score: "text-white",
+    };
+  }
+
+  if (index === 3) {
+    return {
+      card:
+        "border-yellow-300/45 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,255,255,0.056)_42%,rgba(255,255,255,0.04))]",
+      rank: "text-yellow-400",
+      name: "text-white",
+      score: "text-white",
+    };
+  }
+
+  if (index === 4) {
+    return {
+      card:
+        "border-yellow-300/35 bg-[linear-gradient(90deg,rgba(250,204,21,0.075),rgba(255,255,255,0.05)_42%,rgba(255,255,255,0.04))]",
+      rank: "text-yellow-500",
+      name: "text-white",
+      score: "text-white",
+    };
+  }
+
+  return {
+    card: active === false ? "border-red-400/30 bg-red-950/20" : "border-white/10 bg-white/5",
+    rank: "text-cyan-300",
+    name: "text-white",
+    score: "text-white",
+  };
+}
+
 function clampNumber(value, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return min;
@@ -548,6 +607,45 @@ function getQuizDetailsValue(settingData) {
 
 function settingsByKey(settings = []) {
   return settings.reduce((all, item) => ({ ...all, [item.key]: item }), {});
+}
+
+function logsBySubmissionId(logs = []) {
+  return logs.reduce((all, log) => {
+    return {
+      ...all,
+      [log.submission_id]: [...(all[log.submission_id] || []), log],
+    };
+  }, {});
+}
+
+function NotificationLogSummary({ logs = [] }) {
+  const latestLog = logs[0];
+
+  if (!latestLog) {
+    return (
+      <p className="mt-3 text-xs font-bold text-zinc-500">
+        Email notification: no attempt logged yet.
+      </p>
+    );
+  }
+
+  const statusClass =
+    latestLog.status === "sent"
+      ? "text-emerald-300"
+      : latestLog.status === "failed"
+        ? "text-red-300"
+        : "text-zinc-400";
+
+  return (
+    <div className="mt-3 rounded-md border border-white/10 bg-zinc-950/70 px-3 py-2 text-xs leading-5 text-zinc-400">
+      <span className={`font-black uppercase tracking-[0.14em] ${statusClass}`}>
+        Email {latestLog.status}
+      </span>
+      <span className="text-zinc-600"> · </span>
+      <span>{new Date(latestLog.created_at).toLocaleString()}</span>
+      {latestLog.message && <p className="mt-1 text-zinc-500">{latestLog.message}</p>}
+    </div>
+  );
 }
 
 function getTestDraftKey(testId) {
@@ -1385,6 +1483,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
 }
 
 function ScoreboardPage({ navigate }) {
+  const shareBoardRef = useRef(null);
   const [session, setSession] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [entries, setEntries] = useState([]);
@@ -1399,6 +1498,7 @@ function ScoreboardPage({ navigate }) {
   const [historyLogs, setHistoryLogs] = useState({});
   const [historyLoading, setHistoryLoading] = useState("");
   const [showArchive, setShowArchive] = useState(false);
+  const [sharingBoard, setSharingBoard] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -1508,6 +1608,7 @@ function ScoreboardPage({ navigate }) {
       : isAdmin
         ? activeEntries
         : activeEntries.slice(0, 20);
+  const shareEntries = activeEntries.slice(0, 20);
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1835,6 +1936,51 @@ function ScoreboardPage({ navigate }) {
     setMessage("History entry deleted and points reversed.");
   };
 
+  const shareScoreboardImage = async () => {
+    if (!shareBoardRef.current) return;
+
+    setError("");
+    setMessage("");
+    setSharingBoard(true);
+
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(shareBoardRef.current, {
+        backgroundColor: "#050505",
+        scale: 2,
+        useCORS: true,
+      });
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+      if (!blob) throw new Error("The scoreboard image could not be created.");
+
+      const file = new File([blob], "brians-top-20.png", { type: "image/png" });
+
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: "Brian's Top 20",
+          text: "Brian's Top 20",
+        });
+        setMessage("Scoreboard image ready to share.");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "brians-top-20.png";
+        link.click();
+        URL.revokeObjectURL(url);
+        setMessage("Scoreboard image downloaded.");
+      }
+    } catch (shareError) {
+      if (shareError?.name !== "AbortError") {
+        setError(shareError?.message || "Scoreboard image could not be created.");
+      }
+    } finally {
+      setSharingBoard(false);
+    }
+  };
+
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
       <BackButton onClick={() => (session ? navigate("dashboard") : navigate("landing"))} />
@@ -1848,8 +1994,17 @@ function ScoreboardPage({ navigate }) {
             </p>
           </div>
 
-          {isAdmin && (
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={shareScoreboardImage}
+              disabled={sharingBoard || shareEntries.length === 0}
+              className="rounded-md border border-yellow-300/30 px-5 py-3 font-black text-yellow-100 transition hover:bg-yellow-950/30 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {sharingBoard ? "Creating..." : "Share Board"}
+            </button>
+            {isAdmin && (
+              <>
               <button
                 type="button"
                 onClick={() => setShowArchive((current) => !current)}
@@ -1868,8 +2023,9 @@ function ScoreboardPage({ navigate }) {
               >
                 Add Entry
               </button>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -2071,55 +2227,7 @@ function ScoreboardPage({ navigate }) {
                   : manualAdjustment < 0
                     ? { label: "Manual penalty", symbol: "▼", className: "text-red-300" }
                     : { label: "No manual adjustment", symbol: "━", className: "text-zinc-500" };
-              const rankAccent =
-                index === 0
-                  ? {
-                      card:
-                        "border-yellow-300/95 bg-[linear-gradient(90deg,rgba(250,204,21,0.34),rgba(255,255,255,0.09)_42%,rgba(255,255,255,0.045))] shadow-[0_0_32px_rgba(250,204,21,0.34)]",
-                      rank: "text-yellow-200",
-                      name: "text-white",
-                      score: "text-yellow-100",
-                    }
-                  : index === 1
-                    ? {
-                        card:
-                          "border-yellow-300/80 bg-[linear-gradient(90deg,rgba(250,204,21,0.24),rgba(255,255,255,0.075)_42%,rgba(255,255,255,0.04))] shadow-[0_0_22px_rgba(250,204,21,0.20)]",
-                        rank: "text-yellow-200",
-                        name: "text-white",
-                        score: "text-yellow-50",
-                      }
-                    : index === 2
-                      ? {
-                          card:
-                            "border-yellow-300/65 bg-[linear-gradient(90deg,rgba(250,204,21,0.17),rgba(255,255,255,0.064)_42%,rgba(255,255,255,0.04))]",
-                          rank: "text-yellow-300",
-                          name: "text-white",
-                          score: "text-white",
-                        }
-                      : index === 3
-                        ? {
-                            card:
-                              "border-yellow-300/45 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,255,255,0.056)_42%,rgba(255,255,255,0.04))]",
-                            rank: "text-yellow-400",
-                            name: "text-white",
-                            score: "text-white",
-                          }
-                        : index === 4
-                          ? {
-                              card:
-                                "border-yellow-300/35 bg-[linear-gradient(90deg,rgba(250,204,21,0.075),rgba(255,255,255,0.05)_42%,rgba(255,255,255,0.04))]",
-                              rank: "text-yellow-500",
-                              name: "text-white",
-                              score: "text-white",
-                            }
-                          : {
-                              card: entry.active === false
-                                ? "border-red-400/30 bg-red-950/20"
-                                : "border-white/10 bg-white/5",
-                              rank: "text-cyan-300",
-                              name: "text-white",
-                              score: "text-white",
-                            };
+              const rankAccent = getScoreboardRankAccent(index, entry.active);
               const rankLabel = `#${index + 1}`;
               const rankDisplay = index === 0 ? (
                 <span className={`flex flex-col items-center leading-none ${rankAccent.rank}`}>
@@ -2359,6 +2467,73 @@ function ScoreboardPage({ navigate }) {
         )}
 
       </section>
+      <div className="pointer-events-none fixed -left-[9999px] top-0" aria-hidden="true">
+        <div ref={shareBoardRef} className="w-[900px] bg-zinc-950 p-10 text-white">
+          <div className="rounded-lg border border-white/10 bg-zinc-950/95 p-8 shadow-2xl shadow-black/50">
+            <h2 className="text-5xl font-black">Brian's Top 20</h2>
+            <p className="mt-3 text-sm font-bold text-zinc-500">
+              <span className="text-yellow-300">★</span> = compatibility test score added
+            </p>
+
+            <div className="mt-8 grid gap-3">
+              {shareEntries.map((entry, index) => {
+                const finalScore = getScoreboardFinal(entry);
+                const compatibilityAdjustment = getScoreboardAdjustment(entry);
+                const manualAdjustment = Number(entry.manual_adjustment) || 0;
+                const fullName = entry.private_name || entry.name || entry.public_name || "";
+                const publicName =
+                  entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
+                const rankAccent = getScoreboardRankAccent(index, entry.active);
+                const rankLabel = `#${index + 1}`;
+                const rankDisplay = index === 0 ? (
+                  <span className={`flex flex-col items-center leading-none ${rankAccent.rank}`}>
+                    <span className="text-[10px]" aria-hidden="true">👑</span>
+                    <span>{rankLabel}</span>
+                  </span>
+                ) : (
+                  rankLabel
+                );
+                const manualMarker =
+                  manualAdjustment > 0
+                    ? { label: "Manual boost", symbol: "▲", className: "text-emerald-300" }
+                    : manualAdjustment < 0
+                      ? { label: "Manual penalty", symbol: "▼", className: "text-red-300" }
+                      : { label: "No manual adjustment", symbol: "━", className: "text-zinc-500" };
+
+                return (
+                  <article
+                    key={`share-${entry.id}`}
+                    className={`grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-4 rounded-md border px-4 py-3 ${rankAccent.card}`}
+                  >
+                    <span className={`font-black ${rankAccent.rank}`}>{rankDisplay}</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`truncate text-2xl font-black ${rankAccent.name}`}>
+                        {publicName}
+                      </span>
+                      {compatibilityAdjustment > 0 && (
+                        <span className="shrink-0 text-sm leading-none text-yellow-300">★</span>
+                      )}
+                    </span>
+                    <span className="whitespace-nowrap text-right text-sm font-black uppercase tracking-[0.12em] text-zinc-400">
+                      POINTS{" "}
+                      <span className={`text-3xl ${rankAccent.score}`}>
+                        {formatScoreboardNumber(finalScore)}
+                      </span>
+                      <span className={`ml-2 text-2xl font-black leading-none ${manualMarker.className}`}>
+                        {manualMarker.symbol}
+                      </span>
+                    </span>
+                  </article>
+                );
+              })}
+            </div>
+
+            <p className="mt-8 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">
+              Copyright 2026 thefinetest (TM) Brian Inc.
+            </p>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }
@@ -2871,6 +3046,7 @@ function TestManager({ navigate, navigateToPath }) {
   const [tests, setTests] = useState([]);
   const [questionCounts, setQuestionCounts] = useState({});
   const [submissions, setSubmissions] = useState([]);
+  const [notificationLogs, setNotificationLogs] = useState({});
   const [expandedSubmissionIds, setExpandedSubmissionIds] = useState([]);
   const [mode, setMode] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
@@ -2921,15 +3097,36 @@ function TestManager({ navigate, navigateToPath }) {
     setQuestionCounts(counts);
 
     const testIds = (testRows || []).map((test) => test.id);
+    if (testIds.length === 0) {
+      setSubmissions([]);
+      setNotificationLogs({});
+      setLoading(false);
+      return;
+    }
+
     const { data: submissionData, error: submissionError } = await supabase
       .from("compatibility_submissions")
-      .select("id,test_id,name,score,max_score,percent,result_tier,result_message,owner_note,created_at,compatibility_answers(question_prompt,option_label,points)")
+      .select("id,test_id,name,score,max_score,percent,result_tier,result_message,owner_note,created_at,notification_sent_at,compatibility_answers(question_prompt,option_label,points)")
+      .in("test_id", testIds)
       .order("created_at", { ascending: false });
 
     if (submissionError) {
       setError(submissionError.message);
     } else {
-      setSubmissions((submissionData || []).filter((submission) => testIds.includes(submission.test_id)));
+      const loadedSubmissions = submissionData || [];
+      setSubmissions(loadedSubmissions);
+
+      const submissionIds = loadedSubmissions.map((submission) => submission.id);
+      if (submissionIds.length) {
+        const { data: logData } = await supabase
+          .from("compatibility_notification_logs")
+          .select("id,submission_id,status,recipient,message,created_at")
+          .in("submission_id", submissionIds)
+          .order("created_at", { ascending: false });
+        setNotificationLogs(logsBySubmissionId(logData || []));
+      } else {
+        setNotificationLogs({});
+      }
     }
 
     setLoading(false);
@@ -3001,18 +3198,32 @@ function TestManager({ navigate, navigateToPath }) {
 
     setConfirmDelete("");
     setTests((current) => current.filter((item) => item.id !== test.id));
+    const removedSubmissionIds = submissions
+      .filter((submission) => submission.test_id === test.id)
+      .map((submission) => submission.id);
     setSubmissions((current) => current.filter((submission) => submission.test_id !== test.id));
+    setNotificationLogs((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([submissionId]) => !removedSubmissionIds.includes(submissionId))
+      )
+    );
     setMessage("Test deleted.");
   };
 
   const deleteSubmission = async (id) => {
     setError("");
     setMessage("");
+    const submission = submissions.find((item) => item.id === id);
 
-    const { error: deleteError } = await supabase
+    let query = supabase
       .from("compatibility_submissions")
       .delete()
       .eq("id", id);
+    if (submission?.test_id) {
+      query = query.eq("test_id", submission.test_id);
+    }
+
+    const { error: deleteError } = await query;
 
     if (deleteError) {
       setError(deleteError.message);
@@ -3020,6 +3231,11 @@ function TestManager({ navigate, navigateToPath }) {
     }
 
     setSubmissions((current) => current.filter((submission) => submission.id !== id));
+    setNotificationLogs((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setExpandedSubmissionIds((current) => current.filter((submissionId) => submissionId !== id));
     setMessage("Result deleted.");
   };
@@ -3035,11 +3251,17 @@ function TestManager({ navigate, navigateToPath }) {
   const saveSubmissionNote = async (id, note) => {
     setError("");
     setMessage("");
+    const submission = submissions.find((item) => item.id === id);
 
-    const { error: noteError } = await supabase
+    let query = supabase
       .from("compatibility_submissions")
       .update({ owner_note: note.trim() })
       .eq("id", id);
+    if (submission?.test_id) {
+      query = query.eq("test_id", submission.test_id);
+    }
+
+    const { error: noteError } = await query;
 
     if (noteError) {
       setError(noteError.message);
@@ -3255,6 +3477,8 @@ function TestManager({ navigate, navigateToPath }) {
                   </button>
                 </div>
 
+                <NotificationLogSummary logs={notificationLogs[submission.id] || []} />
+
                 {answersExpanded && (
                   <div className="animate-soft-in mt-4 grid gap-2">
                     {(submission.compatibility_answers || []).map((answer) => (
@@ -3299,6 +3523,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [activeTest, setActiveTest] = useState(null);
   const [profile, setProfile] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [notificationLogs, setNotificationLogs] = useState({});
   const [expandedSubmissionIds, setExpandedSubmissionIds] = useState([]);
   const [tab, setTab] = useState("questions");
   const [loading, setLoading] = useState(true);
@@ -3386,6 +3611,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       setError("That editor link is not connected to this account.");
       setQuestions([]);
       setSubmissions([]);
+      setNotificationLogs({});
       setResultBands([]);
       setEditorReady(false);
       return;
@@ -3440,6 +3666,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       );
       setQuestions([]);
       setSubmissions([]);
+      setNotificationLogs({});
       setResultBands([]);
       setShortResultBands([]);
       return;
@@ -3476,6 +3703,17 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setQuestions(draftQuestions || loadedQuestions);
     setSavedQuestions(cloneQuestions(loadedQuestions));
     setSubmissions(submissionData || []);
+    const submissionIds = (submissionData || []).map((submission) => submission.id);
+    if (submissionIds.length) {
+      const { data: logData } = await supabase
+        .from("compatibility_notification_logs")
+        .select("id,submission_id,status,recipient,message,created_at")
+        .in("submission_id", submissionIds)
+        .order("created_at", { ascending: false });
+      setNotificationLogs(logsBySubmissionId(logData || []));
+    } else {
+      setNotificationLogs({});
+    }
     let loadedBands = bandData || [];
     if (loadedBands.length === 0) {
       await supabase
@@ -4059,10 +4297,15 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   };
 
   const deleteSubmission = async (id) => {
-    const { error: deleteError } = await supabase
+    let query = supabase
       .from("compatibility_submissions")
       .delete()
       .eq("id", id);
+    if (activeTest?.id) {
+      query = query.eq("test_id", activeTest.id);
+    }
+
+    const { error: deleteError } = await query;
 
     if (deleteError) {
       setError(deleteError.message);
@@ -4070,6 +4313,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     }
 
     setSubmissions((current) => current.filter((submission) => submission.id !== id));
+    setNotificationLogs((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setExpandedSubmissionIds((current) => current.filter((submissionId) => submissionId !== id));
   };
 
@@ -4085,10 +4333,15 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
     setError("");
     setMessage("");
 
-    const { error: noteError } = await supabase
+    let query = supabase
       .from("compatibility_submissions")
       .update({ owner_note: note.trim() })
       .eq("id", id);
+    if (activeTest?.id) {
+      query = query.eq("test_id", activeTest.id);
+    }
+
+    const { error: noteError } = await query;
 
     if (noteError) {
       setError(noteError.message);
@@ -4618,6 +4871,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     Delete Result
                   </button>
                 </div>
+
+                <NotificationLogSummary logs={notificationLogs[submission.id] || []} />
 
                 {answersExpanded && (
                   <div className="animate-soft-in mt-4 grid gap-2">

@@ -61,6 +61,38 @@ async function patchRow(path, body, serviceRoleKey) {
   }
 }
 
+async function createRow(path, body, serviceRoleKey) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: "POST",
+    headers: {
+      ...supabaseHeaders(serviceRoleKey),
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+}
+
+async function logNotification(serviceRoleKey, submissionId, status, message, recipient = "") {
+  try {
+    await createRow(
+      "compatibility_notification_logs",
+      {
+        submission_id: submissionId,
+        status,
+        message,
+        recipient,
+      },
+      serviceRoleKey
+    );
+  } catch (error) {
+    console.error("notification log failed", error);
+  }
+}
+
 async function getOwnerEmail(ownerId, serviceRoleKey) {
   const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${ownerId}`, {
     headers: supabaseHeaders(serviceRoleKey),
@@ -195,6 +227,7 @@ export default async (request) => {
     }
 
     if (submission.notification_sent_at) {
+      await logNotification(serviceRoleKey, submission.id, "skipped", "Notification already sent.");
       return json({ ok: true, skipped: true, reason: "Notification already sent." });
     }
 
@@ -204,10 +237,12 @@ export default async (request) => {
     );
 
     if (!test) {
+      await logNotification(serviceRoleKey, submission.id, "failed", "Test not found.");
       return json({ error: "Test not found." }, 404);
     }
 
     if (test.email_notifications_enabled !== true) {
+      await logNotification(serviceRoleKey, submission.id, "skipped", "Email notifications are disabled for this test.");
       return json({ ok: true, skipped: true, reason: "Email notifications are disabled for this test." });
     }
 
@@ -221,6 +256,7 @@ export default async (request) => {
 
     const to = env("RESULTS_EMAIL_TO") || ownerEmail;
     if (!to) {
+      await logNotification(serviceRoleKey, submission.id, "skipped", "No recipient email found.");
       return json({ ok: false, skipped: true, reason: "No recipient email found." }, 202);
     }
 
@@ -235,11 +271,23 @@ export default async (request) => {
         { notification_sent_at: new Date().toISOString() },
         serviceRoleKey
       );
+      await logNotification(serviceRoleKey, submission.id, "sent", "Email notification sent.", to);
+    } else {
+      await logNotification(
+        serviceRoleKey,
+        submission.id,
+        "skipped",
+        emailResult.reason || "Email notification skipped.",
+        to
+      );
     }
 
     return json({ ok: true, ...emailResult });
   } catch (error) {
     console.error("notify-result failed", error);
+    if (UUID_PATTERN.test(submissionId) && serviceRoleKey) {
+      await logNotification(serviceRoleKey, submissionId, "failed", error?.message || "Notification failed.");
+    }
     return json({ ok: false, error: "Notification failed." }, 500);
   }
 };

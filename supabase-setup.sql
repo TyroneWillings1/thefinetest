@@ -45,6 +45,15 @@ add column if not exists notification_sent_at timestamptz;
 alter table public.compatibility_submissions
 add column if not exists owner_note text default '';
 
+create table if not exists public.compatibility_notification_logs (
+  id uuid primary key default gen_random_uuid(),
+  submission_id uuid not null references public.compatibility_submissions(id) on delete cascade,
+  status text not null default 'skipped',
+  recipient text default '',
+  message text default '',
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.compatibility_answers (
   id uuid primary key default gen_random_uuid(),
   submission_id uuid not null references public.compatibility_submissions(id) on delete cascade,
@@ -274,6 +283,7 @@ end $$;
 alter table public.compatibility_questions enable row level security;
 alter table public.compatibility_options enable row level security;
 alter table public.compatibility_submissions enable row level security;
+alter table public.compatibility_notification_logs enable row level security;
 alter table public.compatibility_answers enable row level security;
 alter table public.compatibility_result_bands enable row level security;
 alter table public.compatibility_settings enable row level security;
@@ -408,6 +418,21 @@ with check (
   )
 );
 
+drop policy if exists "Admins can read notification logs" on public.compatibility_notification_logs;
+create policy "Admins can read notification logs"
+on public.compatibility_notification_logs
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.compatibility_submissions s
+    join public.compatibility_tests t on t.id = s.test_id
+    where s.id = compatibility_notification_logs.submission_id
+      and t.owner_id = auth.uid()
+  )
+);
+
 drop policy if exists "Public can submit compatibility answers" on public.compatibility_answers;
 create policy "Public can submit compatibility answers"
 on public.compatibility_answers
@@ -465,19 +490,36 @@ with check (
 );
 
 drop policy if exists "Public can read compatibility settings" on public.compatibility_settings;
-create policy "Public can read compatibility settings"
+drop policy if exists "Scoreboard admins can read legacy compatibility settings" on public.compatibility_settings;
+create policy "Scoreboard admins can read legacy compatibility settings"
 on public.compatibility_settings
 for select
-to anon, authenticated
-using (true);
+to authenticated
+using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
 
 drop policy if exists "Admins can manage compatibility settings" on public.compatibility_settings;
-create policy "Admins can manage compatibility settings"
+drop policy if exists "Scoreboard admins can manage legacy compatibility settings" on public.compatibility_settings;
+create policy "Scoreboard admins can manage legacy compatibility settings"
 on public.compatibility_settings
 for all
 to authenticated
-using (true)
-with check (true);
+using (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.scoreboard_admins a
+    where a.user_id = auth.uid()
+  )
+);
 
 drop policy if exists "Public can read compatibility profiles" on public.compatibility_profiles;
 create policy "Public can read compatibility profiles"
