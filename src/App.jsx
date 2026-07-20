@@ -2078,7 +2078,7 @@ function ScoreboardPage({ navigate }) {
                 index === 0
                   ? {
                       card:
-                        "border-yellow-300/80 bg-[linear-gradient(90deg,rgba(250,204,21,0.22),rgba(255,255,255,0.075)_42%,rgba(255,255,255,0.04))] shadow-[0_0_26px_rgba(250,204,21,0.22)]",
+                        "border-yellow-300/95 bg-[linear-gradient(90deg,rgba(250,204,21,0.34),rgba(255,255,255,0.09)_42%,rgba(255,255,255,0.045))] shadow-[0_0_32px_rgba(250,204,21,0.34)]",
                       rank: "text-yellow-200",
                       name: "text-white",
                       score: "text-yellow-100",
@@ -2086,7 +2086,7 @@ function ScoreboardPage({ navigate }) {
                   : index === 1
                     ? {
                         card:
-                          "border-yellow-300/60 bg-[linear-gradient(90deg,rgba(250,204,21,0.16),rgba(255,255,255,0.06)_42%,rgba(255,255,255,0.04))] shadow-[0_0_18px_rgba(250,204,21,0.14)]",
+                          "border-yellow-300/80 bg-[linear-gradient(90deg,rgba(250,204,21,0.24),rgba(255,255,255,0.075)_42%,rgba(255,255,255,0.04))] shadow-[0_0_22px_rgba(250,204,21,0.20)]",
                         rank: "text-yellow-200",
                         name: "text-white",
                         score: "text-yellow-50",
@@ -2094,7 +2094,7 @@ function ScoreboardPage({ navigate }) {
                     : index === 2
                       ? {
                           card:
-                            "border-yellow-300/45 bg-[linear-gradient(90deg,rgba(250,204,21,0.11),rgba(255,255,255,0.052)_42%,rgba(255,255,255,0.04))]",
+                            "border-yellow-300/65 bg-[linear-gradient(90deg,rgba(250,204,21,0.17),rgba(255,255,255,0.064)_42%,rgba(255,255,255,0.04))]",
                           rank: "text-yellow-300",
                           name: "text-white",
                           score: "text-white",
@@ -2102,7 +2102,7 @@ function ScoreboardPage({ navigate }) {
                       : index === 3
                         ? {
                             card:
-                              "border-yellow-300/30 bg-[linear-gradient(90deg,rgba(250,204,21,0.075),rgba(255,255,255,0.048)_42%,rgba(255,255,255,0.04))]",
+                              "border-yellow-300/45 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,255,255,0.056)_42%,rgba(255,255,255,0.04))]",
                             rank: "text-yellow-400",
                             name: "text-white",
                             score: "text-white",
@@ -2110,7 +2110,7 @@ function ScoreboardPage({ navigate }) {
                         : index === 4
                           ? {
                               card:
-                                "border-yellow-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.035),rgba(255,255,255,0.045)_42%,rgba(255,255,255,0.04))]",
+                                "border-yellow-300/35 bg-[linear-gradient(90deg,rgba(250,204,21,0.075),rgba(255,255,255,0.05)_42%,rgba(255,255,255,0.04))]",
                               rank: "text-yellow-500",
                               name: "text-white",
                               score: "text-white",
@@ -2123,6 +2123,15 @@ function ScoreboardPage({ navigate }) {
                               name: "text-white",
                               score: "text-white",
                             };
+              const rankLabel = `#${index + 1}`;
+              const rankDisplay = index === 0 ? (
+                <span className={`flex flex-col items-center leading-none ${rankAccent.rank}`}>
+                  <span className="text-[10px]" aria-hidden="true">👑</span>
+                  <span>{rankLabel}</span>
+                </span>
+              ) : (
+                rankLabel
+              );
 
               return (
                 <article
@@ -2132,7 +2141,7 @@ function ScoreboardPage({ navigate }) {
                   {isAdmin ? (
                     <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
                       <div className="grid w-full grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 sm:flex-1">
-                        <span className={`font-black ${rankAccent.rank}`}>#{index + 1}</span>
+                        <span className={`font-black ${rankAccent.rank}`}>{rankDisplay}</span>
                         <span className="flex min-w-0 items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
                           <span className={`truncate text-lg font-black sm:text-xl ${rankAccent.name}`}>
                             {displayName}
@@ -2223,7 +2232,7 @@ function ScoreboardPage({ navigate }) {
                     </div>
                   ) : (
                     <div className="grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-x-2 text-sm sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:text-base">
-                      <span className={`font-black ${rankAccent.rank}`}>#{index + 1}</span>
+                      <span className={`font-black ${rankAccent.rank}`}>{rankDisplay}</span>
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
                         <span className={`truncate text-lg font-black sm:text-xl ${rankAccent.name}`}>{displayName}</span>
                         {compatibilityAdjustment > 0 && (
