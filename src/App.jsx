@@ -2078,43 +2078,51 @@ function ScoreboardPage({ navigate }) {
                 index === 0
                   ? {
                       card:
-                        "border-amber-300/65 bg-[linear-gradient(90deg,rgba(251,191,36,0.16),rgba(255,255,255,0.06)_40%,rgba(255,255,255,0.04))] shadow-[0_0_22px_rgba(251,191,36,0.16)]",
-                      rank: "text-amber-200",
+                        "border-yellow-300/80 bg-[linear-gradient(90deg,rgba(250,204,21,0.22),rgba(255,255,255,0.075)_42%,rgba(255,255,255,0.04))] shadow-[0_0_26px_rgba(250,204,21,0.22)]",
+                      rank: "text-yellow-200",
                       name: "text-white",
-                      score: "text-amber-100",
+                      score: "text-yellow-100",
                     }
                   : index === 1
                     ? {
                         card:
-                          "border-zinc-200/45 bg-[linear-gradient(90deg,rgba(228,228,231,0.13),rgba(255,255,255,0.055)_42%,rgba(255,255,255,0.04))]",
-                        rank: "text-zinc-100",
+                          "border-yellow-300/60 bg-[linear-gradient(90deg,rgba(250,204,21,0.16),rgba(255,255,255,0.06)_42%,rgba(255,255,255,0.04))] shadow-[0_0_18px_rgba(250,204,21,0.14)]",
+                        rank: "text-yellow-200",
                         name: "text-white",
-                        score: "text-white",
+                        score: "text-yellow-50",
                       }
                     : index === 2
                       ? {
                           card:
-                            "border-orange-300/45 bg-[linear-gradient(90deg,rgba(251,146,60,0.13),rgba(255,255,255,0.055)_42%,rgba(255,255,255,0.04))]",
-                          rank: "text-orange-200",
+                            "border-yellow-300/45 bg-[linear-gradient(90deg,rgba(250,204,21,0.11),rgba(255,255,255,0.052)_42%,rgba(255,255,255,0.04))]",
+                          rank: "text-yellow-300",
                           name: "text-white",
-                          score: "text-orange-50",
+                          score: "text-white",
                         }
-                      : index < 5
+                      : index === 3
                         ? {
                             card:
-                              "border-cyan-300/35 bg-[linear-gradient(90deg,rgba(34,211,238,0.10),rgba(255,255,255,0.05)_42%,rgba(255,255,255,0.04))]",
-                            rank: "text-cyan-200",
-                            name: "text-white",
-                            score: "text-cyan-50",
-                          }
-                        : {
-                            card: entry.active === false
-                              ? "border-red-400/30 bg-red-950/20"
-                              : "border-white/10 bg-white/5",
-                            rank: "text-cyan-300",
+                              "border-yellow-300/30 bg-[linear-gradient(90deg,rgba(250,204,21,0.075),rgba(255,255,255,0.048)_42%,rgba(255,255,255,0.04))]",
+                            rank: "text-yellow-400",
                             name: "text-white",
                             score: "text-white",
-                          };
+                          }
+                        : index === 4
+                          ? {
+                              card:
+                                "border-yellow-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.035),rgba(255,255,255,0.045)_42%,rgba(255,255,255,0.04))]",
+                              rank: "text-yellow-500",
+                              name: "text-white",
+                              score: "text-white",
+                            }
+                          : {
+                              card: entry.active === false
+                                ? "border-red-400/30 bg-red-950/20"
+                                : "border-white/10 bg-white/5",
+                              rank: "text-cyan-300",
+                              name: "text-white",
+                              score: "text-white",
+                            };
 
               return (
                 <article
