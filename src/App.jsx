@@ -517,6 +517,40 @@ function getScoreboardFinal(entry) {
   return roundScoreboardNumber(fineScore + getScoreboardAdjustment(entry) + manualAdjustment);
 }
 
+function getScoreboardManualMarker(entry, latestLog = null) {
+  const latestDelta =
+    latestLog?.delta ??
+    entry.last_adjustment_delta ??
+    entry.latest_adjustment_delta ??
+    null;
+  const delta = Number(latestDelta);
+
+  if (Number.isFinite(delta) && delta > 0) {
+    return {
+      label: "Last score change increased points",
+      symbol: "▲",
+      className: "text-emerald-300",
+      exportClass: "up",
+    };
+  }
+
+  if (Number.isFinite(delta) && delta < 0) {
+    return {
+      label: "Last score change decreased points",
+      symbol: "▼",
+      className: "text-red-300",
+      exportClass: "down",
+    };
+  }
+
+  return {
+    label: "No recent score change",
+    symbol: "━",
+    className: "text-zinc-500",
+    exportClass: "flat",
+  };
+}
+
 function getScoreboardRankAccent(index, active = true) {
   if (index === 0) {
     return {
@@ -2218,7 +2252,6 @@ function ScoreboardPage({ navigate }) {
             {displayedEntries.map((entry, index) => {
               const finalScore = getScoreboardFinal(entry);
               const compatibilityAdjustment = getScoreboardAdjustment(entry);
-              const manualAdjustment = Number(entry.manual_adjustment) || 0;
               const fullName = entry.private_name || entry.name || entry.public_name || "";
               const publicName =
                 entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
@@ -2227,12 +2260,7 @@ function ScoreboardPage({ navigate }) {
               const latestLog = entryLogs[0];
               const adjustmentOpen = adjustmentDraft?.entry?.id === entry.id;
               const pendingAdjustment = adjustmentOpen ? Number(adjustmentDraft.delta) : 0;
-              const manualMarker =
-                manualAdjustment > 0
-                  ? { label: "Manual boost", symbol: "▲", className: "text-emerald-300" }
-                  : manualAdjustment < 0
-                    ? { label: "Manual penalty", symbol: "▼", className: "text-red-300" }
-                    : { label: "No manual adjustment", symbol: "━", className: "text-zinc-500" };
+              const manualMarker = getScoreboardManualMarker(entry, latestLog);
               const rankAccent = getScoreboardRankAccent(index, entry.active);
               const rankLabel = `#${index + 1}`;
               const rankDisplay = index === 0 ? (
@@ -2485,7 +2513,7 @@ function ScoreboardPage({ navigate }) {
               {shareEntries.map((entry, index) => {
                 const finalScore = getScoreboardFinal(entry);
                 const compatibilityAdjustment = getScoreboardAdjustment(entry);
-                const manualAdjustment = Number(entry.manual_adjustment) || 0;
+                const latestLog = historyLogs[entry.id]?.[0] || null;
                 const fullName = entry.private_name || entry.name || entry.public_name || "";
                 const publicName =
                   entry.public_name || getInitialsFromName(fullName) || entry.name || "N.";
@@ -2500,12 +2528,7 @@ function ScoreboardPage({ navigate }) {
                 ) : (
                   rankLabel
                 );
-                const manualMarker =
-                  manualAdjustment > 0
-                    ? { label: "Manual boost", symbol: "▲", className: "text-emerald-300" }
-                    : manualAdjustment < 0
-                      ? { label: "Manual penalty", symbol: "▼", className: "text-red-300" }
-                      : { label: "No manual adjustment", symbol: "━", className: "text-zinc-500" };
+                const manualMarker = getScoreboardManualMarker(entry, latestLog);
 
                 return (
                   <article
@@ -2529,13 +2552,8 @@ function ScoreboardPage({ navigate }) {
                       <strong>
                         {formatScoreboardNumber(finalScore)}
                       </strong>
-                      <b
-                        className={
-                          manualAdjustment > 0 ? "up" : manualAdjustment < 0 ? "down" : "flat"
-                        }
-                        aria-label={manualMarker.label}
-                      >
-                        {manualAdjustment > 0 ? "▲" : manualAdjustment < 0 ? "▼" : "━"}
+                      <b className={manualMarker.exportClass} aria-label={manualMarker.label}>
+                        {manualMarker.symbol}
                       </b>
                     </span>
                   </article>

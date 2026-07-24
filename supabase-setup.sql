@@ -173,6 +173,13 @@ select
   short_compatibility_percent,
   long_compatibility_percent,
   manual_adjustment,
+  (
+    select l.delta
+    from public.scoreboard_adjustment_logs l
+    where l.entry_id = scoreboard_entries.id
+    order by l.created_at desc
+    limit 1
+  ) as last_adjustment_delta,
   note,
   sort_order,
   active,
