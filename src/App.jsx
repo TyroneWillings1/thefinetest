@@ -85,7 +85,7 @@ const createGoogleNoncePair = async () => {
 };
 
 const DEFAULT_QUIZ_DETAILS = {
-  title: "Compatibility Test",
+  title: "Test",
   description: "",
   public_id: "",
   email_notifications_enabled: false,
@@ -419,7 +419,7 @@ const fallbackResultBands = [
     min_percent: 0,
     max_percent: 39,
     title: "Not My Type",
-    message: "The compatibility is low, but thanks for taking the test.",
+    message: "The score is low, but thanks for taking the test.",
     sort_order: 1,
   },
   {
@@ -443,7 +443,7 @@ const fallbackResultBands = [
     min_percent: 80,
     max_percent: 100,
     title: "Strong Match",
-    message: "This looks like a strong compatibility match.",
+    message: "This looks like a strong match.",
     sort_order: 4,
   },
 ];
@@ -943,7 +943,7 @@ function AccountDrawer({ onClose, navigate }) {
             className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
           >
             <span className="block text-lg font-black text-white">My Tests</span>
-            <span className="mt-1 block text-sm text-zinc-400">Edit your compatibility quizzes</span>
+            <span className="mt-1 block text-sm text-zinc-400">Edit your tests</span>
           </button>
 
           <button
@@ -952,7 +952,7 @@ function AccountDrawer({ onClose, navigate }) {
             className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
           >
             <span className="block text-lg font-black text-white">Results</span>
-            <span className="mt-1 block text-sm text-zinc-400">Review quiz submissions</span>
+            <span className="mt-1 block text-sm text-zinc-400">Review test submissions</span>
           </button>
 
           <button
@@ -1043,7 +1043,7 @@ function Hub({ navigate }) {
             </p>
             <h2 className="mt-3 text-3xl font-black sm:text-4xl">Tests</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-300 sm:text-base">
-              Create compatibility quizzes and review results.
+              Create tests and review results.
             </p>
           </button>
 
@@ -1560,7 +1560,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
     setPublicTest(testData);
 
     if (loadError) {
-      setError("The compatibility test is not set up yet.");
+      setError("This test is not set up yet.");
       setQuestions([]);
     } else {
       setQuestions(
@@ -1705,7 +1705,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-8">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">
-          Compatibility
+          Test
         </p>
         <h1 className="mt-4 text-4xl font-black text-white">{quizDetails.title}</h1>
         {quizDetails.description && (
@@ -1722,7 +1722,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
 
         {!loading && !result && questions.length > 0 && shortTestAvailable && !testLengthChosen && (
           <div className="mt-8">
-            <h2 className="text-2xl font-black text-white">Take the short quiz or long quiz?</h2>
+            <h2 className="text-2xl font-black text-white">Take the short test or full test?</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -1730,10 +1730,10 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
                   setTestLength("short");
                   setTestLengthChosen(true);
                 }}
-                className="rounded-lg border border-cyan-300/40 bg-white/5 p-5 text-left transition hover:bg-white/10"
+                className="rounded-lg border border-white/10 bg-white/5 p-5 text-left transition hover:border-white/30 hover:bg-white/10"
               >
-                <span className="block text-2xl font-black text-white">Short Quiz</span>
-                <span className="mt-2 block text-sm font-bold text-cyan-300">
+                <span className="block text-2xl font-black text-white">Short Test</span>
+                <span className="mt-2 block text-sm font-bold text-zinc-300">
                   {shortQuestionCount} questions · about {estimateMinutes(shortQuestionCount)} min
                 </span>
               </button>
@@ -1743,10 +1743,10 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
                   setTestLength("full");
                   setTestLengthChosen(true);
                 }}
-                className="rounded-lg border border-white/10 bg-white p-5 text-left text-zinc-950 transition hover:bg-cyan-100"
+                className="rounded-lg border border-white/10 bg-white/5 p-5 text-left text-white transition hover:border-white/30 hover:bg-white/10"
               >
-                <span className="block text-2xl font-black">Long Quiz</span>
-                <span className="mt-2 block text-sm font-bold text-cyan-700">
+                <span className="block text-2xl font-black">Full Test</span>
+                <span className="mt-2 block text-sm font-bold text-zinc-300">
                   {questions.length} questions · about {estimateMinutes(questions.length)} min
                 </span>
               </button>
@@ -1765,7 +1765,7 @@ function CompatibilityTest({ navigate, sharedTest = { testId: "" } }) {
                 onClick={() => setTestLengthChosen(false)}
                 className="w-fit text-xs font-black uppercase tracking-[0.18em] text-cyan-300 transition hover:text-white"
               >
-                Change quiz length
+                Change test length
               </button>
             )}
 
@@ -2374,7 +2374,7 @@ function ScoreboardPage({ navigate }) {
           <div>
             <h1 className="text-4xl font-black text-white">Brian's Top 20</h1>
             <p className="mt-2 text-xs font-bold text-zinc-500">
-              <span className="text-yellow-300">★</span> = compatibility test score added
+              <span className="text-yellow-300">★</span> = test score added
             </p>
           </div>
 
@@ -2630,7 +2630,7 @@ function ScoreboardPage({ navigate }) {
                             {displayName}
                           </span>
                           {compatibilityAdjustment > 0 && (
-                            <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
+                            <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Test score added">
                               ★
                             </span>
                           )}
@@ -2719,7 +2719,7 @@ function ScoreboardPage({ navigate }) {
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:min-w-[4rem] sm:gap-2">
                         <span className={`truncate text-lg font-black sm:text-xl ${rankAccent.name}`}>{displayName}</span>
                         {compatibilityAdjustment > 0 && (
-                          <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Compatibility test score added">
+                          <span className="shrink-0 text-xs leading-none text-yellow-300 sm:text-sm" aria-label="Test score added">
                             ★
                           </span>
                         )}
@@ -2850,7 +2850,7 @@ function ScoreboardPage({ navigate }) {
           <div className="scoreboard-export-card">
             <h2>Brian's Top 20</h2>
             <p className="scoreboard-export-legend">
-              <span>*</span> = compatibility test score added
+              <span>*</span> = test score added
             </p>
 
             <div className="scoreboard-export-list">
@@ -3417,9 +3417,9 @@ function SettingsPage({ navigate }) {
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h2 className="text-xl font-black text-white">Legal Information</h2>
             <p className="mt-2 leading-7 text-zinc-300">
-              The FINE Test stores account details, quiz content, and compatibility results so
+              The FINE Test stores account details, test content, and result data so
               users can manage their own tests. Do not submit sensitive personal information.
-              User-created quiz text belongs to the user who created it.
+              User-created test text belongs to the user who created it.
             </p>
             <p className="mt-3 leading-7 text-zinc-300">
               Copyright 2026 The FINE Test. All rights reserved. The site design, scoring tools,
@@ -3734,13 +3734,15 @@ function TestManager({ navigate, navigateToPath, initialMode = "list" }) {
       <BackButton onClick={() => navigate("dashboard")} />
 
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-6">
-        <h1 className="text-3xl font-black text-white">Compatibility Tests</h1>
+        <h1 className="text-3xl font-black text-white">Tests</h1>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setMode("list")}
-            className="rounded-lg border border-cyan-300/40 bg-white/5 p-4 text-left transition hover:bg-white/10"
+            className={`rounded-lg border p-4 text-left transition hover:bg-white/10 ${
+              mode === "list" ? "border-white/20 bg-white/10" : "border-white/10 bg-white/5"
+            }`}
           >
             <span className="block text-xl font-black text-white">Edit Existing Test</span>
             <span className="mt-1 block text-sm text-zinc-400">Open your saved tests</span>
@@ -3748,7 +3750,9 @@ function TestManager({ navigate, navigateToPath, initialMode = "list" }) {
           <button
             type="button"
             onClick={() => setMode("results")}
-            className="rounded-lg border border-white/10 bg-white/5 p-4 text-left transition hover:border-cyan-300/40 hover:bg-white/10"
+            className={`rounded-lg border p-4 text-left transition hover:bg-white/10 ${
+              mode === "results" ? "border-white/20 bg-white/10" : "border-white/10 bg-white/5"
+            }`}
           >
             <span className="block text-xl font-black text-white">Test Results</span>
             <span className="mt-1 block text-sm text-zinc-400">Review submissions</span>
@@ -3756,10 +3760,10 @@ function TestManager({ navigate, navigateToPath, initialMode = "list" }) {
           <button
             type="button"
             onClick={createNewTest}
-            className="rounded-lg border border-white/10 bg-white p-4 text-left text-zinc-950 transition hover:bg-cyan-100"
+            className="rounded-lg border border-white/10 bg-white/5 p-4 text-left text-white transition hover:border-white/30 hover:bg-white/10"
           >
             <span className="block text-xl font-black">Create New Test</span>
-            <span className="mt-1 block text-sm text-zinc-600">Start with a blank editor</span>
+            <span className="mt-1 block text-sm text-zinc-400">Start with a blank editor</span>
           </button>
         </div>
 
@@ -3792,14 +3796,14 @@ function TestManager({ navigate, navigateToPath, initialMode = "list" }) {
                   <button
                     type="button"
                     onClick={() => currentTest && editTest(currentTest)}
-                    className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
+                    className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-zinc-200"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => currentTest && copyShareLink(currentTest)}
-                    className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                    className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-white/30 hover:bg-white/10"
                   >
                     Share
                   </button>
@@ -3839,7 +3843,7 @@ function TestManager({ navigate, navigateToPath, initialMode = "list" }) {
         {mode === "results" && (
           <div className="mt-6 grid gap-4">
             <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
                 Test Results
               </p>
               <h2 className="mt-2 text-2xl font-black text-white">{quizDetails.title}</h2>
@@ -4846,7 +4850,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       </div>
 
       <section className="animate-soft-in rounded-lg border border-white/10 bg-zinc-950/70 p-4 shadow-2xl shadow-black/30 sm:p-5">
-        <h1 className="text-3xl font-black text-white sm:text-4xl">Make your compatibility quiz</h1>
+        <h1 className="text-3xl font-black text-white sm:text-4xl">Make your test</h1>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap gap-2">
@@ -4872,7 +4876,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           <button
             type="button"
             onClick={copyShareLink}
-            className="ml-auto rounded-full border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 hover:bg-cyan-950/50"
+            className="ml-auto rounded-full border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 hover:border-white/30 hover:bg-white/10"
           >
             Copy Share Link
           </button>
@@ -4920,7 +4924,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
 
         {!setupNeeded && tab === "questions" && (
           <div className="animate-soft-in mt-4">
-            <div className="mb-4 rounded-lg border border-cyan-300/40 bg-transparent p-3 shadow-[0_0_0_1px_rgba(103,232,249,0.08),0_18px_50px_rgba(0,0,0,0.22)]">
+            <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.03] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
               <div className="grid gap-3 md:grid-cols-[1fr_1.25fr_170px]">
                 <label>
                   <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
@@ -4931,8 +4935,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     onChange={(event) =>
                       setQuizDetails((current) => ({ ...current, title: event.target.value }))
                     }
-                    className="w-full rounded-md border border-cyan-300/25 bg-black/20 px-3 py-2 text-white"
-                    placeholder="Compatibility Test"
+                    className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-white/30"
+                    placeholder="Test"
                   />
                 </label>
                 <label>
@@ -4947,7 +4951,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         description: event.target.value,
                       }))
                     }
-                    className="w-full rounded-md border border-cyan-300/25 bg-black/20 px-3 py-2 text-white"
+                    className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-white/30"
                     placeholder=""
                   />
                 </label>
@@ -4958,17 +4962,17 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <input
                     value={quizDetails.public_id || "created on save"}
                     readOnly
-                    className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-zinc-400"
+                    className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-zinc-400"
                   />
                 </label>
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-black/20 px-3 py-2">
                 <div>
                   <p className="text-sm font-black text-white">
                     Receive email notifications about results?
                   </p>
                   <p className="mt-1 text-xs text-zinc-400">
-                    Sends an email when someone submits this quiz.
+                    Sends an email when someone submits this test.
                   </p>
                 </div>
                 <label className="flex items-center gap-2 text-sm font-bold text-zinc-200">
@@ -4983,7 +4987,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     className={`relative h-4 w-8 rounded-full transition ${
                       quizDetails.email_notifications_enabled ? "bg-emerald-400" : "bg-red-500"
                     }`}
-                    aria-label="Toggle email notifications for this quiz"
+                    aria-label="Toggle email notifications for this test"
                   >
                     <span
                       className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
@@ -5000,11 +5004,11 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               {questions.map((question, questionIndex) => (
                 <article
                   key={question.id}
-                  className="animate-soft-in rounded-lg border border-cyan-300/25 bg-transparent p-3 shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
+                  className="animate-soft-in rounded-lg border border-white/10 bg-white/[0.02] p-3 shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
                 >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-cyan-300 px-2 text-sm font-black text-zinc-950">
+                      <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/90 px-2 text-sm font-black text-zinc-950">
                         {questionIndex + 1}
                       </span>
                       <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
@@ -5040,7 +5044,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         onChange={(event) =>
                           updateQuestion(question.id, { prompt: event.target.value })
                         }
-                        className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-white"
+                        className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-white/30"
                       />
                     </label>
                   </div>
@@ -5077,7 +5081,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                           updateQuestion(question.id, { description: event.target.value })
                         }
                         rows="2"
-                        className="w-full rounded-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-white"
+                        className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-white outline-none transition focus:border-white/30"
                       />
                     </label>
                   )}
@@ -5085,7 +5089,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <div className="mt-3 grid gap-2">
                     <div className="hidden grid-cols-[1fr_150px_auto_auto] gap-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-400 md:grid">
                       <span>Answer</span>
-                      <span>Compatibility score (0-10 pts)</span>
+                      <span>Score (0-10 pts)</span>
                       <span />
                       <span />
                     </div>
@@ -5117,14 +5121,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         <button
                           type="button"
                           onClick={() => deleteOption(option.id)}
-                          className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 hover:border-cyan-300 hover:text-cyan-200"
+                          className="rounded-md border border-white/10 px-3 py-2 text-sm font-bold text-zinc-300 hover:border-white/30 hover:text-white"
                         >
                           Delete
                         </button>
                         <button
                           type="button"
                           onClick={() => fillRandomAnswer(question.id, option.id)}
-                          className="rounded-md border border-white/10 px-3 py-2 text-xl hover:border-cyan-300"
+                          className="rounded-md border border-white/10 px-3 py-2 text-xl hover:border-white/30"
                           title="Random answer"
                           aria-label="Random answer"
                         >
@@ -5145,14 +5149,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     <button
                       type="button"
                       onClick={() => deleteQuestion(question.id)}
-                      className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 hover:bg-cyan-950/50"
+                      className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 hover:bg-red-950/40"
                     >
                       Delete Question
                     </button>
                     <button
                       type="button"
                       onClick={() => fillRandomQuestion(question.id)}
-                      className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 hover:border-cyan-300 hover:text-white"
+                      className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 hover:border-white/30 hover:text-white"
                     >
                       Randomize Question
                     </button>
@@ -5165,7 +5169,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               <button
                 type="button"
                 onClick={() => addQuestion()}
-                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 hover:bg-white"
+                className="rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 hover:bg-zinc-200"
               >
                 Add Question
               </button>
@@ -5184,8 +5188,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   saveConfirmed
                     ? "bg-emerald-300"
                     : savingTest
-                      ? "bg-cyan-200"
-                      : "bg-white hover:bg-cyan-100"
+                      ? "bg-zinc-300"
+                      : "bg-white hover:bg-zinc-200"
                 }`}
               >
                 {saveConfirmed ? "Saved" : savingTest ? "Saving..." : "Save Test"}
@@ -5200,7 +5204,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               <button
                 type="button"
                 onClick={copyShareLink}
-                className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 hover:bg-cyan-950/50"
+                className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 hover:border-white/30 hover:bg-white/10"
               >
                 Copy Share Link
               </button>
@@ -5238,7 +5242,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
               <button
                 type="button"
                 onClick={() => setTab("advanced")}
-                className="font-black text-cyan-300 underline-offset-4 hover:underline"
+                className="font-black text-zinc-100 underline-offset-4 hover:underline"
               >
                 Open Advanced Settings
               </button>
@@ -5285,7 +5289,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <button
                     type="button"
                     onClick={() => saveSubmissionNote(submission.id, submission.owner_note || "")}
-                    className="self-end rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-cyan-300 hover:text-cyan-200"
+                    className="self-end rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-white/30 hover:text-white"
                   >
                     Save Note
                   </button>
@@ -5295,7 +5299,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <button
                     type="button"
                     onClick={() => toggleSubmissionAnswers(submission.id)}
-                    className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                    className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-white/30 hover:bg-white/10"
                   >
                     {answersExpanded ? "Hide Answers" : `Show Answers (${answerCount})`}
                   </button>
@@ -5340,8 +5344,8 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     Want to give an option for a shorter test?
                   </h2>
                   <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
-                    When enabled, shared test links ask people to choose between a short quiz and
-                    the full quiz before they start.
+                    When enabled, shared test links ask people to choose between a short test and
+                    the full test before they start.
                   </p>
                 </div>
                 <label className="flex items-center gap-3 text-sm font-black text-zinc-200">
@@ -5372,7 +5376,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                 <div className="mt-5 grid gap-4">
                   <label className="block max-w-xs">
                     <span className="mb-1 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
-                      Questions in short quiz
+                      Questions in short test
                     </span>
                     <input
                       type="number"
@@ -5393,13 +5397,13 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     </span>
                   </label>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-300/20 bg-zinc-950/70 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-zinc-950/70 p-3">
                     <div>
                       <p className="text-sm font-black text-white">
                         Enable separate result margins for shorter test?
                       </p>
                       <p className="mt-1 text-sm leading-6 text-zinc-400">
-                        Use different result titles and messages when someone chooses the short quiz.
+                        Use different result titles and messages when someone chooses the short test.
                       </p>
                     </div>
                     <label className="flex items-center gap-3 text-sm font-black text-zinc-200">
@@ -5418,7 +5422,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                         className={`relative h-4 w-8 rounded-full transition ${
                           quizDetails.short_results_enabled ? "bg-emerald-400" : "bg-red-500"
                         }`}
-                        aria-label="Toggle separate short quiz result margins"
+                        aria-label="Toggle separate short test result margins"
                       >
                         <span
                           className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
@@ -5504,7 +5508,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                           : "bg-white/10 text-white"
                       }`}
                     >
-                      Long Test Margins
+                      Full Test Margins
                     </button>
                     <button
                       type="button"
@@ -5599,7 +5603,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   <button
                     type="button"
                     onClick={() => deleteResultBand(band.id)}
-                    className="mt-3 rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                    className="mt-3 rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
                   >
                     Delete Margin
                   </button>
@@ -5612,14 +5616,14 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                 type="button"
                 onClick={addResultBand}
                 disabled={!advancedResultsOn}
-                className="rounded-md bg-cyan-300 px-5 py-3 font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-md bg-white/10 px-5 py-3 font-black text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Add Result Margin
               </button>
               <button
                 type="button"
                 onClick={saveAdvancedSettings}
-                className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-cyan-100"
+                className="rounded-md bg-white px-5 py-3 font-black text-zinc-950 transition hover:bg-zinc-200"
               >
                 Save Changes
               </button>
