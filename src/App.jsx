@@ -6,6 +6,9 @@ const supabase = createClient(
   "sb_publishable_wbFiHMgmZ57MlhVl0htp1g_uoyYXb_Y"
 );
 
+const GOOGLE_CLIENT_ID =
+  "256045498360-n5k2j1d58t26iig8u2t32hjuutnsacd1.apps.googleusercontent.com";
+
 const traitGroups = {
   Figure: [
     { label: "Face", max: 20 },
@@ -44,6 +47,40 @@ const routes = {
 const ADVANCED_RESULTS_KEY = "fine_test_advanced_results_enabled";
 const SELECTED_TEST_KEY = "fine_test_selected_test_id";
 const TEST_DRAFT_KEY_PREFIX = "fine_test_editor_draft_";
+
+const loadGoogleIdentityScript = () =>
+  new Promise((resolve, reject) => {
+    if (window.google?.accounts?.id) {
+      resolve(window.google);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(window.google), { once: true });
+      existingScript.addEventListener("error", reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve(window.google);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+const createGoogleNoncePair = async () => {
+  const rawNonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+  const encodedNonce = new TextEncoder().encode(rawNonce);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encodedNonce);
+  const hashedNonce = Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return { rawNonce, hashedNonce };
+};
 
 const DEFAULT_QUIZ_DETAILS = {
   title: "Compatibility Test",
@@ -2579,6 +2616,8 @@ function LoginPage({ navigate, isLanding = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const googleButtonRef = useRef(null);
+  const googleNonceRef = useRef("");
 
   useEffect(() => {
     const isPasswordRecovery = window.location.hash.includes("type=recovery");
@@ -2601,6 +2640,64 @@ function LoginPage({ navigate, isLanding = false }) {
 
     return () => listener.subscription.unsubscribe();
   }, [navigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const renderGoogleButton = async () => {
+      if (mode === "reset" || !googleButtonRef.current) return;
+
+      try {
+        const google = await loadGoogleIdentityScript();
+        const { rawNonce, hashedNonce } = await createGoogleNoncePair();
+
+        if (cancelled || !googleButtonRef.current) return;
+
+        googleNonceRef.current = rawNonce;
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            setBusy(true);
+            setError("");
+            setMessage("");
+
+            const { error: googleError } = await supabase.auth.signInWithIdToken({
+              provider: "google",
+              token: response.credential,
+              nonce: googleNonceRef.current,
+            });
+
+            if (googleError) {
+              setError(googleError.message);
+              setBusy(false);
+            } else {
+              navigate("dashboard", true);
+            }
+          },
+          nonce: hashedNonce,
+        });
+
+        googleButtonRef.current.innerHTML = "";
+        google.accounts.id.renderButton(googleButtonRef.current, {
+          size: "large",
+          text: "continue_with",
+          shape: "rectangular",
+          theme: "outline",
+          width: Math.min(360, googleButtonRef.current.clientWidth || 360),
+        });
+      } catch {
+        if (!cancelled) {
+          setError("Google sign-in could not load. Email sign-in still works.");
+        }
+      }
+    };
+
+    renderGoogleButton();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, navigate]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -2652,7 +2749,7 @@ function LoginPage({ navigate, isLanding = false }) {
     if (socialError) {
       setError(
         socialError.message.toLowerCase().includes("provider")
-          ? `${provider === "google" ? "Google" : "Facebook"} login is not enabled in Supabase yet. Enable the provider in Supabase Auth, then this button will work.`
+          ? "Facebook login is not enabled in Supabase yet. Enable the provider in Supabase Auth, then this button will work."
           : socialError.message
       );
       setBusy(false);
@@ -2726,14 +2823,10 @@ function LoginPage({ navigate, isLanding = false }) {
         </div>}
 
         {mode !== "reset" && <div className="mt-6 grid gap-3">
-          <button
-            type="button"
-            onClick={() => socialLogin("google")}
-            disabled={busy}
-            className="rounded-md border border-white/10 bg-white px-4 py-3 font-black text-zinc-950 transition hover:bg-cyan-100 disabled:opacity-60"
-          >
-            Continue with Google
-          </button>
+          <div
+            ref={googleButtonRef}
+            className="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded-md bg-white"
+          />
           <button
             type="button"
             onClick={() => socialLogin("facebook")}
@@ -2813,7 +2906,7 @@ function LoginPage({ navigate, isLanding = false }) {
         </button>
 
         <p className="mt-5 text-sm leading-6 text-zinc-400">
-          Google and Facebook require Supabase Auth provider setup before those buttons work.
+          Google sign-in opens directly from this page. Facebook still needs provider setup before it works.
         </p>
       </section>
     </main>
