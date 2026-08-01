@@ -965,16 +965,6 @@ function AccountDrawer({ onClose, navigate }) {
 
 function Hub({ navigate }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        navigate("login", true);
-      }
-      setCheckingSession(false);
-    });
-  }, [navigate]);
 
   const openAccount = async () => {
     const { data } = await supabase.auth.getSession();
@@ -985,53 +975,66 @@ function Hub({ navigate }) {
     }
   };
 
-  if (checkingSession) {
-    return <main className="mx-auto w-full max-w-xl px-5 py-12 text-zinc-300">Loading...</main>;
-  }
-
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-12">
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-5 py-10 sm:py-12">
       <button
         type="button"
         onClick={openAccount}
         aria-label="Login"
-        className="fixed right-5 top-5 h-9 w-16 rounded-full bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-cyan-100"
+        className="fixed right-5 top-5 z-10 h-8 w-14 rounded-full border border-white/20 bg-white shadow-lg shadow-black/20 transition hover:scale-105 hover:bg-cyan-100"
       />
 
-      <img
-        src="/logo.svg"
-        alt=""
-        className="mx-auto mb-8 h-16 w-16 rounded-[1.4rem] shadow-2xl shadow-cyan-950/30"
-      />
+      <header className="mb-8 flex flex-col items-center text-center">
+        <img
+          src="/logo.svg"
+          alt=""
+          className="h-20 w-20 rounded-[1.55rem] shadow-2xl shadow-cyan-950/30 sm:h-24 sm:w-24"
+        />
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.32em] text-cyan-300">
+          thefinetest
+        </p>
+      </header>
 
-      <section className="grid gap-4">
-        <button
-          type="button"
-          onClick={() => navigate("calculator")}
-          className="group rounded-lg border border-white/10 bg-white p-6 text-left text-zinc-950 shadow-2xl shadow-black/30 transition hover:-translate-y-1"
-        >
-          <h1 className="text-3xl font-black">FINE Calculator</h1>
-          <p className="mt-3 text-zinc-600">Rate the traits and reveal the tier.</p>
-        </button>
-
+      <section className="grid gap-3 sm:gap-4">
         <button
           type="button"
           onClick={() => navigate("tests")}
-          className="group rounded-lg border border-white/10 bg-zinc-900 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-300/40"
+          className="group relative overflow-hidden rounded-lg border border-cyan-300/40 bg-zinc-900 p-5 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-200/80 sm:p-6"
         >
-          <h2 className="text-3xl font-black">Compatibility Test</h2>
-          <p className="mt-3 text-zinc-300">
-            Test to see how compatible you are with anyone.
+          <span className="absolute inset-x-0 top-0 h-px bg-cyan-300/70" />
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">
+            Build and share
+          </p>
+          <h1 className="mt-3 text-3xl font-black sm:text-4xl">Compatibility Test</h1>
+          <p className="mt-2 text-sm leading-6 text-zinc-300 sm:text-base">
+            Make a quiz, send the link, and collect results.
           </p>
         </button>
 
         <button
           type="button"
           onClick={() => navigate("scoreboard")}
-          className="group rounded-lg border border-cyan-300/30 bg-zinc-950 p-6 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-cyan-200/70"
+          className="group rounded-lg border border-yellow-300/35 bg-zinc-900 p-5 text-left text-white shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:border-yellow-200/70 sm:p-6"
         >
-          <h2 className="text-3xl font-black">Scoreboard</h2>
-          <p className="mt-3 text-zinc-300">View the current rankings.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-yellow-200">
+            Current rankings
+          </p>
+          <h2 className="mt-3 text-3xl font-black sm:text-4xl">Brian's Top 20</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-300 sm:text-base">View the scoreboard.</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("calculator")}
+          className="group rounded-lg border border-white/10 bg-white p-5 text-left text-zinc-950 shadow-2xl shadow-black/30 transition hover:-translate-y-1 hover:bg-cyan-50 sm:p-6"
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-700">
+            Original
+          </p>
+          <h2 className="mt-3 text-2xl font-black sm:text-3xl">FINE Calculator</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 sm:text-base">
+            Rate the traits and reveal the tier.
+          </p>
         </button>
       </section>
 
