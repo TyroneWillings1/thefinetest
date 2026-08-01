@@ -61,6 +61,25 @@ async function getResendErrorMessage(response) {
   }
 }
 
+async function postResendEmail({ from, to, subject, text, html, apiKey }) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, text, html }),
+  });
+
+  if (!response.ok) {
+    const message = await getResendErrorMessage(response);
+    return { ok: false, message };
+  }
+
+  const body = await response.json();
+  return { ok: true, body };
+}
+
 function supabaseHeaders(serviceRoleKey) {
   return {
     apikey: serviceRoleKey,
@@ -209,20 +228,29 @@ async function sendEmail({ to, subject, text, html }) {
     return { skipped: true, reason: "Email environment variables are not configured." };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, text, html }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await getResendErrorMessage(response));
+  const primaryResult = await postResendEmail({ from, to, subject, text, html, apiKey });
+  if (primaryResult.ok) {
+    return primaryResult.body;
   }
 
-  return response.json();
+  if (/sender domain is not verified/i.test(primaryResult.message)) {
+    const fallbackResult = await postResendEmail({
+      from: "The FINE Test <onboarding@resend.dev>",
+      to,
+      subject,
+      text,
+      html,
+      apiKey,
+    });
+
+    if (fallbackResult.ok) {
+      return { ...fallbackResult.body, fallbackSenderUsed: true };
+    }
+
+    throw new Error(fallbackResult.message);
+  }
+
+  throw new Error(primaryResult.message);
 }
 
 export default async (request) => {
@@ -306,7 +334,15 @@ export default async (request) => {
         { notification_sent_at: new Date().toISOString() },
         serviceRoleKey
       );
-      await logNotification(serviceRoleKey, submission.id, "sent", "Email notification sent.", to);
+      await logNotification(
+        serviceRoleKey,
+        submission.id,
+        "sent",
+        emailResult.fallbackSenderUsed
+          ? "Email notification sent using Resend's temporary sender."
+          : "Email notification sent.",
+        to
+      );
     } else {
       await logNotification(
         serviceRoleKey,
