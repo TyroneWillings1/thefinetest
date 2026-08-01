@@ -36,9 +36,11 @@ const routes = {
   landing: "/",
   dashboard: "/dashboard",
   calculator: "/calculator",
+  calculatorSaves: "/calculator-saves",
   compatibility: "/compatibility",
   login: "/login",
   tests: "/tests",
+  testResults: "/results",
   scoreboard: "/scoreboard",
   admin: "/compatible",
   settings: "/settings",
@@ -451,9 +453,11 @@ function getViewFromPath(pathname) {
   if (getAdminTestRoute(pathname).testId) return "admin";
   if (pathname === routes.dashboard) return "dashboard";
   if (pathname === routes.calculator) return "calculator";
+  if (pathname === routes.calculatorSaves) return "calculatorSaves";
   if (pathname === routes.compatibility) return "compatibility";
   if (pathname === routes.login) return "login";
   if (pathname === routes.tests) return "tests";
+  if (pathname === routes.testResults) return "testResults";
   if (pathname === routes.scoreboard) return "scoreboard";
   if (pathname === routes.admin) return "admin";
   if (pathname === routes.settings) return "settings";
@@ -901,6 +905,17 @@ function BackButton({ onClick }) {
 }
 
 function AccountDrawer({ onClose, navigate }) {
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    onClose();
+    navigate("dashboard");
+  };
+
+  const goTo = (view) => {
+    onClose();
+    navigate(view);
+  };
+
   return (
     <div className="fixed inset-0 z-20">
       <button
@@ -924,38 +939,55 @@ function AccountDrawer({ onClose, navigate }) {
         <nav className="mt-8 grid gap-3">
           <button
             type="button"
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-white/30"
+            onClick={() => goTo("tests")}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
+          >
+            <span className="block text-lg font-black text-white">My Tests</span>
+            <span className="mt-1 block text-sm text-zinc-400">Edit your compatibility quizzes</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => goTo("testResults")}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
+          >
+            <span className="block text-lg font-black text-white">Results</span>
+            <span className="mt-1 block text-sm text-zinc-400">Review quiz submissions</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => goTo("calculatorSaves")}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
           >
             <span className="block text-lg font-black text-white">Calculator Saves</span>
-            <span className="mt-1 block text-sm text-zinc-400">Coming soon</span>
+            <span className="mt-1 block text-sm text-zinc-400">Saved FINE calculator scores</span>
           </button>
 
           <button
             type="button"
-            onClick={() => navigate("tests")}
+            onClick={() => goTo("scoreboard")}
             className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
           >
-            <span className="block text-lg font-black text-white">Compatibility Tests</span>
-            <span className="mt-1 block text-sm text-zinc-400">Manage questions and results</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("scoreboard")}
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:border-cyan-300/50"
-          >
-            <span className="block text-lg font-black text-white">Scoreboard</span>
-            <span className="mt-1 block text-sm text-zinc-400">View the public board</span>
+            <span className="block text-lg font-black text-white">Scoreboard Manager</span>
+            <span className="mt-1 block text-sm text-zinc-400">View or edit the board</span>
           </button>
         </nav>
 
-        <div className="mt-auto border-t border-white/10 pt-4">
+        <div className="mt-auto grid gap-3 border-t border-white/10 pt-4">
           <button
             type="button"
-            onClick={() => navigate("settings")}
+            onClick={() => goTo("settings")}
             className="w-full rounded-lg border border-white/10 px-4 py-3 text-left font-black text-zinc-200 transition hover:border-white/30"
           >
             Settings
+          </button>
+          <button
+            type="button"
+            onClick={signOut}
+            className="w-full rounded-lg border border-red-400/40 px-4 py-3 text-left font-black text-red-200 transition hover:bg-red-950/30"
+          >
+            Sign out
           </button>
         </div>
       </aside>
@@ -1037,9 +1069,13 @@ function Hub({ navigate }) {
 }
 
 function FineCalculator({ navigate }) {
+  const [personName, setPersonName] = useState("");
   const [scores, setScores] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [resultLine, setResultLine] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const allTraits = Object.values(traitGroups).flat();
   const totalScore = allTraits
@@ -1058,13 +1094,53 @@ function FineCalculator({ navigate }) {
   const showFinalResults = () => {
     const lines = tierDescriptions[tier];
     setResultLine(lines[Math.floor(Math.random() * lines.length)]);
+    setSaveMessage("");
+    setSaveError("");
     setShowResults(true);
   };
 
   const resetTest = () => {
+    setPersonName("");
     setScores({});
     setResultLine("");
+    setSaveMessage("");
+    setSaveError("");
     setShowResults(false);
+  };
+
+  const saveResult = async () => {
+    setSaving(true);
+    setSaveMessage("");
+    setSaveError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setSaving(false);
+      navigate("login");
+      return;
+    }
+
+    const { error } = await supabase.from("calculator_saves").insert({
+      user_id: sessionData.session.user.id,
+      person_name: personName.trim() || "Unnamed score",
+      total_score: totalScore,
+      wildcard_score: scores.Wildcard || 0,
+      tier,
+      result_line: resultLine,
+      trait_scores: scores,
+    });
+
+    if (error) {
+      setSaveError(
+        error.message.includes("calculator_saves")
+          ? "Calculator saves are not ready yet. Run the updated Supabase setup SQL first."
+          : error.message
+      );
+    } else {
+      setSaveMessage("Calculator result saved.");
+    }
+
+    setSaving(false);
   };
 
   return (
@@ -1082,6 +1158,18 @@ function FineCalculator({ navigate }) {
           <p className="mx-auto mt-4 max-w-md text-center leading-7 text-zinc-300">
             Rate each trait to find out how much you really want someone.
           </p>
+
+          <label className="mx-auto mt-7 block max-w-md text-left">
+            <span className="mb-2 block text-sm font-bold text-zinc-200">
+              Who are you calculating?
+            </span>
+            <input
+              value={personName}
+              onChange={(event) => setPersonName(event.target.value)}
+              className="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
+              placeholder="Name or nickname"
+            />
+          </label>
 
           <div className="mt-8 grid gap-8">
             {Object.entries(traitGroups).map(([category, traits]) => (
@@ -1135,6 +1223,11 @@ function FineCalculator({ navigate }) {
       ) : (
         <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 text-center shadow-2xl shadow-black/30 sm:p-8">
           <h1 className="text-3xl font-black text-white">F.I.N.E. Results</h1>
+          {personName.trim() && (
+            <p className="mt-2 text-sm font-black uppercase tracking-[0.2em] text-cyan-300">
+              {personName.trim()}
+            </p>
+          )}
 
           <div className="mt-8 grid gap-3 text-left">
             {Object.entries(traitGroups)
@@ -1162,6 +1255,17 @@ function FineCalculator({ navigate }) {
           <p className="mt-1 text-6xl font-black text-white">{totalScore}</p>
           <p className="mt-5 text-2xl font-black text-cyan-300">{resultLine}</p>
 
+          {saveMessage && (
+            <div className="mt-6 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
+              {saveMessage}
+            </div>
+          )}
+          {saveError && (
+            <div className="mt-6 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
+              {saveError}
+            </div>
+          )}
+
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <button
               type="button"
@@ -1177,9 +1281,216 @@ function FineCalculator({ navigate }) {
             >
               Start New Test
             </button>
+            <button
+              type="button"
+              onClick={saveResult}
+              disabled={saving}
+              className="rounded-md border border-cyan-300/30 px-5 py-3 font-black text-cyan-200 transition hover:bg-cyan-950/50 disabled:cursor-wait disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save Result"}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("calculatorSaves")}
+              className="rounded-md border border-white/10 px-5 py-3 font-black text-white transition hover:border-white/30"
+            >
+              Calculator Saves
+            </button>
           </div>
         </section>
       )}
+    </main>
+  );
+}
+
+function CalculatorSavesPage({ navigate }) {
+  const [session, setSession] = useState(null);
+  const [saves, setSaves] = useState([]);
+  const [expandedIds, setExpandedIds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (!data.session) {
+        navigate("login", true);
+        setLoading(false);
+        return;
+      }
+
+      loadSaves(data.session);
+    });
+  }, [navigate]);
+
+  const loadSaves = async (activeSession = session) => {
+    if (!activeSession?.user?.id) return;
+    setError("");
+
+    const { data, error: loadError } = await supabase
+      .from("calculator_saves")
+      .select("id,person_name,total_score,wildcard_score,tier,result_line,trait_scores,created_at")
+      .eq("user_id", activeSession.user.id)
+      .order("created_at", { ascending: false });
+
+    if (loadError) {
+      setError(
+        loadError.message.includes("calculator_saves")
+          ? "Calculator saves are not ready yet. Run the updated Supabase setup SQL first."
+          : loadError.message
+      );
+    } else {
+      setSaves(data || []);
+    }
+
+    setLoading(false);
+  };
+
+  const deleteSave = async (id) => {
+    setError("");
+    setMessage("");
+
+    const { error: deleteError } = await supabase
+      .from("calculator_saves")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setSaves((current) => current.filter((save) => save.id !== id));
+    setExpandedIds((current) => current.filter((saveId) => saveId !== id));
+    setMessage("Calculator save deleted.");
+  };
+
+  const toggleExpanded = (id) => {
+    setExpandedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
+  };
+
+  const categoryScore = (save, traits) =>
+    traits.reduce((sum, trait) => sum + (Number(save.trait_scores?.[trait.label]) || 0), 0);
+
+  if (loading) {
+    return <main className="mx-auto w-full max-w-2xl px-5 py-12 text-zinc-300">Loading saves...</main>;
+  }
+
+  if (!session) {
+    return <main className="mx-auto w-full max-w-2xl px-5 py-12 text-zinc-300">Redirecting...</main>;
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-3xl px-5 py-8 sm:py-12">
+      <BackButton onClick={() => navigate("dashboard")} />
+
+      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
+              Calculator
+            </p>
+            <h1 className="mt-3 text-3xl font-black text-white">Calculator Saves</h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("calculator")}
+            className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-white"
+          >
+            New Calculation
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-5 rounded-md border border-cyan-300/30 bg-cyan-950/30 p-3 text-cyan-100">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="mt-5 rounded-md border border-emerald-300/30 bg-emerald-950/30 p-3 text-emerald-100">
+            {message}
+          </div>
+        )}
+
+        <div className="mt-6 grid gap-3">
+          {saves.length === 0 && !error && (
+            <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-zinc-300">
+              No calculator saves yet.
+            </p>
+          )}
+
+          {saves.map((save) => {
+            const expanded = expandedIds.includes(save.id);
+            return (
+              <article key={save.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-white">
+                      {save.person_name || "Unnamed score"}
+                    </h2>
+                    <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                      {new Date(save.created_at).toLocaleString()}
+                    </p>
+                    {save.result_line && (
+                      <p className="mt-3 text-sm font-bold text-cyan-300">{save.result_line}</p>
+                    )}
+                  </div>
+                  <div className="rounded-md bg-white px-4 py-3 text-center text-zinc-950">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                      Score
+                    </p>
+                    <p className="text-3xl font-black">{save.total_score}</p>
+                    <p className="text-sm font-black text-cyan-700">{save.tier}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(save.id)}
+                    className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-200 transition hover:bg-cyan-950/50"
+                  >
+                    {expanded ? "Hide Details" : "Show Details"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteSave(save.id)}
+                    className="rounded-md border border-red-400/40 px-4 py-2 text-sm font-black text-red-200 transition hover:bg-red-950/40"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                {expanded && (
+                  <div className="animate-soft-in mt-4 grid gap-3">
+                    {Object.entries(traitGroups).map(([category, traits]) => (
+                      <div key={category} className="rounded-md border border-white/10 bg-zinc-950/70 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-black text-white">{category}</p>
+                          <p className="text-lg font-black text-cyan-300">
+                            {categoryScore(save, traits)}
+                          </p>
+                        </div>
+                        <div className="mt-2 grid gap-1 text-sm text-zinc-400">
+                          {traits.map((trait) => (
+                            <div key={trait.label} className="flex justify-between gap-3">
+                              <span>{trait.label}</span>
+                              <span>{Number(save.trait_scores?.[trait.label]) || 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
     </main>
   );
 }
@@ -3166,14 +3477,14 @@ function SettingsPage({ navigate }) {
   );
 }
 
-function TestManager({ navigate, navigateToPath }) {
+function TestManager({ navigate, navigateToPath, initialMode = "list" }) {
   const [session, setSession] = useState(null);
   const [tests, setTests] = useState([]);
   const [questionCounts, setQuestionCounts] = useState({});
   const [submissions, setSubmissions] = useState([]);
   const [notificationLogs, setNotificationLogs] = useState({});
   const [expandedSubmissionIds, setExpandedSubmissionIds] = useState([]);
-  const [mode, setMode] = useState("");
+  const [mode, setMode] = useState(initialMode);
   const [confirmDelete, setConfirmDelete] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -5384,11 +5695,15 @@ export default function App() {
       {view === "landing" && <LoginPage navigate={navigate} isLanding />}
       {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
+      {view === "calculatorSaves" && <CalculatorSavesPage navigate={navigate} />}
       {view === "compatibility" && (
         <CompatibilityTest navigate={navigate} sharedTest={sharedTest} />
       )}
       {view === "login" && <LoginPage navigate={navigate} />}
       {view === "tests" && <TestManager navigate={navigate} navigateToPath={navigateToPath} />}
+      {view === "testResults" && (
+        <TestManager navigate={navigate} navigateToPath={navigateToPath} initialMode="results" />
+      )}
       {view === "scoreboard" && <ScoreboardPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} adminTest={adminTest} />}
       {view === "settings" && <SettingsPage navigate={navigate} />}

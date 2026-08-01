@@ -91,6 +91,19 @@ create table if not exists public.compatibility_profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.calculator_saves (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  person_name text not null default '',
+  total_score integer not null default 0,
+  wildcard_score integer not null default 0,
+  tier text not null default '',
+  result_line text default '',
+  trait_scores jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.scoreboard_admins (
   user_id uuid primary key references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
@@ -295,6 +308,7 @@ alter table public.compatibility_answers enable row level security;
 alter table public.compatibility_result_bands enable row level security;
 alter table public.compatibility_settings enable row level security;
 alter table public.compatibility_profiles enable row level security;
+alter table public.calculator_saves enable row level security;
 alter table public.compatibility_tests enable row level security;
 alter table public.scoreboard_admins enable row level security;
 alter table public.scoreboard_entries enable row level security;
@@ -549,6 +563,35 @@ for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read their calculator saves" on public.calculator_saves;
+create policy "Users can read their calculator saves"
+on public.calculator_saves
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can create their calculator saves" on public.calculator_saves;
+create policy "Users can create their calculator saves"
+on public.calculator_saves
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their calculator saves" on public.calculator_saves;
+create policy "Users can update their calculator saves"
+on public.calculator_saves
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their calculator saves" on public.calculator_saves;
+create policy "Users can delete their calculator saves"
+on public.calculator_saves
+for delete
+to authenticated
+using (auth.uid() = user_id);
 
 drop policy if exists "Public can read compatibility tests" on public.compatibility_tests;
 create policy "Public can read compatibility tests"
