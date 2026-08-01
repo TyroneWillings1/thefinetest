@@ -89,6 +89,7 @@ const DEFAULT_QUIZ_DETAILS = {
   description: "",
   public_id: "",
   email_notifications_enabled: false,
+  listed_on_profile: true,
   short_test_enabled: false,
   short_question_count: 10,
   short_results_enabled: false,
@@ -451,6 +452,7 @@ const fallbackResultBands = [
 function getViewFromPath(pathname) {
   if (getSharedTestRoute(pathname).testId) return "compatibility";
   if (getAdminTestRoute(pathname).testId) return "admin";
+  if (getProfileRoute(pathname).username) return "profile";
   if (pathname === routes.dashboard) return "dashboard";
   if (pathname === routes.calculator) return "calculator";
   if (pathname === routes.calculatorSaves) return "calculatorSaves";
@@ -475,6 +477,13 @@ function getAdminTestRoute(pathname) {
   const match = pathname.match(/^\/compatible\/([a-z0-9]{6,12})\/?$/i);
   return {
     testId: match?.[1]?.toLowerCase() || "",
+  };
+}
+
+function getProfileRoute(pathname) {
+  const match = pathname.match(/^\/@([a-z0-9_]{3,24})\/?$/i);
+  return {
+    username: match?.[1]?.toLowerCase() || "",
   };
 }
 
@@ -672,6 +681,7 @@ function getQuizDetailsValue(settingData) {
     description: value.description || DEFAULT_QUIZ_DETAILS.description,
     public_id: value.public_id || DEFAULT_QUIZ_DETAILS.public_id,
     email_notifications_enabled: value.email_notifications_enabled === true,
+    listed_on_profile: value.listed_on_profile !== false,
     short_test_enabled: value.short_test_enabled === true,
     short_question_count: Number(
       value.short_question_count || DEFAULT_QUIZ_DETAILS.short_question_count
@@ -794,6 +804,7 @@ async function createCompatibilityTest(user, details = DEFAULT_QUIZ_DETAILS) {
       title: details.title || DEFAULT_QUIZ_DETAILS.title,
       description: details.description || "",
       email_notifications_enabled: details.email_notifications_enabled === true,
+      listed_on_profile: details.listed_on_profile !== false,
       short_test_enabled: details.short_test_enabled === true,
       short_question_count:
         Number(details.short_question_count) || DEFAULT_QUIZ_DETAILS.short_question_count,
@@ -846,7 +857,7 @@ async function ensureUserProfile(user) {
       .insert({
         user_id: user.id,
         username,
-        display_name: user.email || "",
+        display_name: "",
       })
       .select("user_id,username,display_name")
       .single();
@@ -1087,6 +1098,162 @@ function Hub({ navigate }) {
       </section>
 
       {menuOpen && <AccountDrawer onClose={() => setMenuOpen(false)} navigate={navigate} />}
+    </main>
+  );
+}
+
+function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username: "" } }) {
+  const [profile, setProfile] = useState(null);
+  const [tests, setTests] = useState([]);
+  const [questionCounts, setQuestionCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    loadProfile();
+  }, [profileRoute.username]);
+
+  const loadProfile = async () => {
+    setLoading(true);
+    setError("");
+    setProfile(null);
+    setTests([]);
+    setQuestionCounts({});
+
+    if (!profileRoute.username) {
+      setError("Profile not found.");
+      setLoading(false);
+      return;
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+      .from("compatibility_profiles")
+      .select("user_id,username")
+      .eq("username", profileRoute.username)
+      .maybeSingle();
+
+    if (profileError || !profileData) {
+      setError("Profile not found.");
+      setLoading(false);
+      return;
+    }
+
+    setProfile(profileData);
+
+    const { data: testRows, error: testsError } = await supabase
+      .from("compatibility_tests")
+      .select("id,title,description,public_id,created_at,listed_on_profile")
+      .eq("owner_id", profileData.user_id)
+      .eq("listed_on_profile", true)
+      .order("created_at", { ascending: false });
+
+    if (testsError) {
+      setError(testsError.message);
+      setLoading(false);
+      return;
+    }
+
+    const visibleTests = (testRows || []).filter((test) => TEST_ID_PATTERN.test(test.public_id));
+    setTests(visibleTests);
+
+    const counts = {};
+    await Promise.all(
+      visibleTests.map(async (test) => {
+        const { count } = await supabase
+          .from("compatibility_questions")
+          .select("id", { count: "exact", head: true })
+          .eq("test_id", test.id)
+          .eq("active", true);
+        counts[test.id] = count || 0;
+      })
+    );
+    setQuestionCounts(counts);
+    setLoading(false);
+  };
+
+  const displayName = profile?.username;
+  const isBrianProfile = profile?.username === "brian";
+
+  return (
+    <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
+      <BackButton onClick={() => navigate("dashboard")} />
+
+      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-7">
+        {loading && <p className="text-zinc-300">Loading profile...</p>}
+
+        {!loading && error && (
+          <div className="rounded-lg border border-cyan-300/30 bg-cyan-950/30 p-4 text-cyan-100">
+            {error}
+          </div>
+        )}
+
+        {!loading && profile && (
+          <>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
+              Public profile
+            </p>
+            <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h1 className="text-4xl font-black text-white sm:text-5xl">{displayName}</h1>
+                <p className="mt-2 text-sm font-bold text-zinc-400">@{profile.username}</p>
+              </div>
+              {isBrianProfile && (
+                <button
+                  type="button"
+                  onClick={() => navigate("scoreboard")}
+                  className="rounded-md border border-yellow-300/50 px-4 py-3 font-black text-yellow-100 transition hover:bg-yellow-300/10"
+                >
+                  Brian's Top 20
+                </button>
+              )}
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {isBrianProfile && (
+                <button
+                  type="button"
+                  onClick={() => navigate("scoreboard")}
+                  className="rounded-lg border border-yellow-300/45 bg-zinc-900 p-5 text-left transition hover:-translate-y-1 hover:border-yellow-200"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-yellow-200">
+                    Featured
+                  </p>
+                  <h2 className="mt-3 text-3xl font-black text-white">Brian's Top 20</h2>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">
+                    View the current rankings.
+                  </p>
+                </button>
+              )}
+
+              {tests.map((test) => (
+                <button
+                  key={test.id}
+                  type="button"
+                  onClick={() => navigateToPath(`/t/${test.public_id}`, "compatibility")}
+                  className="rounded-lg border border-white/10 bg-white/5 p-5 text-left transition hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-white/10"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">
+                    Test
+                  </p>
+                  <h2 className="mt-3 text-2xl font-black text-white">{test.title || "Test"}</h2>
+                  {test.description && (
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">{test.description}</p>
+                  )}
+                  <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                    {questionCounts[test.id] || 0} questions
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {!tests.length && !isBrianProfile && (
+              <p className="mt-8 rounded-lg border border-white/10 bg-white/5 p-4 text-zinc-300">
+                No public tests yet.
+              </p>
+            )}
+          </>
+        )}
+      </section>
     </main>
   );
 }
@@ -3246,7 +3413,7 @@ function LoginPage({ navigate, isLanding = false }) {
   );
 }
 
-function SettingsPage({ navigate }) {
+function SettingsPage({ navigate, navigateToPath }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState("");
@@ -3341,7 +3508,7 @@ function SettingsPage({ navigate }) {
       .upsert({
         user_id: session.user.id,
         username: nextUsername,
-        display_name: session.user.email || "",
+        display_name: profile?.display_name || "",
         updated_at: new Date().toISOString(),
       })
       .select("user_id,username,display_name")
@@ -3475,6 +3642,15 @@ function SettingsPage({ navigate }) {
                 Save
               </button>
             </div>
+            {USERNAME_PATTERN.test(username) && (
+              <button
+                type="button"
+                onClick={() => navigateToPath(`/@${normalizeUsername(username)}`, "profile")}
+                className="mt-3 rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-100 transition hover:bg-cyan-950/40"
+              >
+                View Public Profile
+              </button>
+            )}
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
@@ -4478,6 +4654,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       description: quizDetails.description.trim(),
       public_id: nextTestId,
       email_notifications_enabled: quizDetails.email_notifications_enabled === true,
+      listed_on_profile: quizDetails.listed_on_profile !== false,
       short_test_enabled: quizDetails.short_test_enabled === true,
       short_question_count: Math.max(
         1,
@@ -4494,6 +4671,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         title: cleanedDetails.title,
         description: cleanedDetails.description,
         email_notifications_enabled: cleanedDetails.email_notifications_enabled,
+        listed_on_profile: cleanedDetails.listed_on_profile,
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
         short_results_enabled: cleanedDetails.short_results_enabled,
@@ -4576,6 +4754,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
           title: details.title.trim() || DEFAULT_QUIZ_DETAILS.title,
           description: details.description.trim(),
           email_notifications_enabled: details.email_notifications_enabled === true,
+          listed_on_profile: details.listed_on_profile !== false,
           short_test_enabled: details.short_test_enabled === true,
           short_question_count: Math.max(
             1,
@@ -4744,6 +4923,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
       title: quizDetails.title.trim() || DEFAULT_QUIZ_DETAILS.title,
       description: quizDetails.description.trim(),
       email_notifications_enabled: quizDetails.email_notifications_enabled === true,
+      listed_on_profile: quizDetails.listed_on_profile !== false,
       short_test_enabled: quizDetails.short_test_enabled === true,
       short_question_count: Math.max(
         1,
@@ -4760,6 +4940,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
         title: cleanedDetails.title,
         description: cleanedDetails.description,
         email_notifications_enabled: cleanedDetails.email_notifications_enabled,
+        listed_on_profile: cleanedDetails.listed_on_profile,
         short_test_enabled: cleanedDetails.short_test_enabled,
         short_question_count: cleanedDetails.short_question_count,
         short_results_enabled: cleanedDetails.short_results_enabled,
@@ -5089,6 +5270,36 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                     />
                   </button>
                   {quizDetails.email_notifications_enabled ? "Enabled" : "Disabled"}
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-black/20 px-3 py-2">
+                <div>
+                  <p className="text-sm font-black text-white">Show this test on your public profile?</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Direct share links still work when this is disabled.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm font-bold text-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuizDetails((current) => ({
+                        ...current,
+                        listed_on_profile: current.listed_on_profile === false,
+                      }))
+                    }
+                    className={`relative h-4 w-8 rounded-full transition ${
+                      quizDetails.listed_on_profile !== false ? "bg-emerald-400" : "bg-red-500"
+                    }`}
+                    aria-label="Toggle public profile listing for this test"
+                  >
+                    <span
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                        quizDetails.listed_on_profile !== false ? "left-[18px]" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                  {quizDetails.listed_on_profile !== false ? "Shown" : "Hidden"}
                 </label>
               </div>
             </div>
@@ -5770,12 +5981,14 @@ export default function App() {
   const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
   const [sharedTest, setSharedTest] = useState(() => getSharedTestRoute(window.location.pathname));
   const [adminTest, setAdminTest] = useState(() => getAdminTestRoute(window.location.pathname));
+  const [profileRoute, setProfileRoute] = useState(() => getProfileRoute(window.location.pathname));
 
   useEffect(() => {
     const handlePopState = () => {
       setView(getViewFromPath(window.location.pathname));
       setSharedTest(getSharedTestRoute(window.location.pathname));
       setAdminTest(getAdminTestRoute(window.location.pathname));
+      setProfileRoute(getProfileRoute(window.location.pathname));
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -5793,6 +6006,7 @@ export default function App() {
     }
     setSharedTest({ testId: "" });
     setAdminTest({ testId: "" });
+    setProfileRoute({ username: "" });
     setView(nextView);
   };
 
@@ -5806,6 +6020,7 @@ export default function App() {
     }
     setSharedTest(getSharedTestRoute(path));
     setAdminTest(getAdminTestRoute(path));
+    setProfileRoute(getProfileRoute(path));
     setView(nextView);
   };
 
@@ -5816,6 +6031,13 @@ export default function App() {
       {view === "dashboard" && <Hub navigate={navigate} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "calculatorSaves" && <CalculatorSavesPage navigate={navigate} />}
+      {view === "profile" && (
+        <PublicProfilePage
+          navigate={navigate}
+          navigateToPath={navigateToPath}
+          profileRoute={profileRoute}
+        />
+      )}
       {view === "compatibility" && (
         <CompatibilityTest navigate={navigate} sharedTest={sharedTest} />
       )}
@@ -5826,7 +6048,7 @@ export default function App() {
       )}
       {view === "scoreboard" && <ScoreboardPage navigate={navigate} />}
       {view === "admin" && <AdminPanel navigate={navigate} adminTest={adminTest} />}
-      {view === "settings" && <SettingsPage navigate={navigate} />}
+      {view === "settings" && <SettingsPage navigate={navigate} navigateToPath={navigateToPath} />}
       <SiteFooter />
     </div>
   );

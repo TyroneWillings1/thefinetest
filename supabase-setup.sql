@@ -1,4 +1,4 @@
--- The FINE Test compatibility admin setup.
+-- The FINE Test app database setup.
 -- Safe to run more than once.
 
 create table if not exists public.compatibility_questions (
@@ -215,9 +215,10 @@ create table if not exists public.compatibility_tests (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
   public_id text unique not null,
-  title text not null default 'Compatibility Test',
+  title text not null default 'Test',
   description text default '',
   email_notifications_enabled boolean not null default false,
+  listed_on_profile boolean not null default true,
   short_test_enabled boolean not null default false,
   short_question_count integer not null default 10,
   short_results_enabled boolean not null default false,
@@ -240,6 +241,13 @@ add column if not exists test_id uuid references public.compatibility_tests(id) 
 
 alter table public.compatibility_tests
 add column if not exists email_notifications_enabled boolean not null default false;
+
+alter table public.compatibility_tests
+add column if not exists listed_on_profile boolean not null default true;
+
+update public.compatibility_profiles
+set display_name = ''
+where display_name like '%@%';
 
 alter table public.compatibility_tests
 add column if not exists short_results_enabled boolean not null default false;
@@ -284,7 +292,7 @@ begin
     values (
       legacy_owner,
       legacy_public_id,
-      coalesce(nullif(legacy_details->>'title', ''), 'Compatibility Test'),
+      coalesce(nullif(legacy_details->>'title', ''), 'Test'),
       coalesce(legacy_details->>'description', ''),
       coalesce((legacy_details->>'short_test_enabled')::boolean, false),
       coalesce((legacy_details->>'short_question_count')::integer, 10),
@@ -798,7 +806,7 @@ values ('advanced_results', '{"enabled": false}'::jsonb)
 on conflict (key) do nothing;
 
 insert into public.compatibility_settings (key, value)
-values ('quiz_details', '{"title": "Compatibility Test", "description": "", "public_id": "", "short_test_enabled": false, "short_question_count": 10, "short_results_enabled": false}'::jsonb)
+values ('quiz_details', '{"title": "Test", "description": "", "public_id": "", "short_test_enabled": false, "short_question_count": 10, "short_results_enabled": false}'::jsonb)
 on conflict (key) do nothing;
 
 -- Random question templates now live in the app and are only added when you click random-question controls.
