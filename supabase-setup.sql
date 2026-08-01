@@ -90,6 +90,7 @@ create table if not exists public.compatibility_profiles (
   avatar_url text default '',
   profile_bio text default '',
   profile_accent text not null default 'cyan',
+  profile_theme jsonb not null default '{"preset":"clean","background":"spotlight","font":"bold","cardStyle":"solid","showTests":true,"showScoreboard":true}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -260,6 +261,9 @@ add column if not exists profile_bio text default '';
 
 alter table public.compatibility_profiles
 add column if not exists profile_accent text not null default 'cyan';
+
+alter table public.compatibility_profiles
+add column if not exists profile_theme jsonb not null default '{"preset":"clean","background":"spotlight","font":"bold","cardStyle":"solid","showTests":true,"showScoreboard":true}'::jsonb;
 
 alter table public.compatibility_tests
 add column if not exists short_results_enabled boolean not null default false;

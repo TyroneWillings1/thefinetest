@@ -134,6 +134,64 @@ const PROFILE_ACCENTS = [
   { id: "red", label: "Red", color: "#fb7185", glow: "rgba(251, 113, 133, 0.26)" },
   { id: "violet", label: "Violet", color: "#a78bfa", glow: "rgba(167, 139, 250, 0.26)" },
 ];
+const DEFAULT_PROFILE_THEME = {
+  preset: "clean",
+  background: "spotlight",
+  font: "bold",
+  cardStyle: "solid",
+  showTests: true,
+  showScoreboard: true,
+};
+const PROFILE_PRESETS = [
+  {
+    id: "clean",
+    label: "Clean",
+    description: "Simple, dark, direct.",
+    theme: { background: "spotlight", font: "bold", cardStyle: "solid" },
+  },
+  {
+    id: "neon",
+    label: "Neon",
+    description: "Louder edges, brighter glow.",
+    theme: { background: "grid", font: "bold", cardStyle: "glass" },
+  },
+  {
+    id: "poster",
+    label: "Poster",
+    description: "Big name, crisp blocks.",
+    theme: { background: "halo", font: "display", cardStyle: "outline" },
+  },
+  {
+    id: "soft",
+    label: "Soft",
+    description: "Less sharp, more calm.",
+    theme: { background: "fade", font: "classic", cardStyle: "glass" },
+  },
+  {
+    id: "chaos",
+    label: "Chaos",
+    description: "Bright without becoming unreadable.",
+    theme: { background: "split", font: "compact", cardStyle: "outline" },
+  },
+];
+const PROFILE_BACKGROUNDS = [
+  { id: "spotlight", label: "Spotlight" },
+  { id: "grid", label: "Grid" },
+  { id: "halo", label: "Halo" },
+  { id: "fade", label: "Fade" },
+  { id: "split", label: "Split" },
+];
+const PROFILE_FONTS = [
+  { id: "bold", label: "Bold" },
+  { id: "display", label: "Display" },
+  { id: "classic", label: "Classic" },
+  { id: "compact", label: "Compact" },
+];
+const PROFILE_CARD_STYLES = [
+  { id: "solid", label: "Solid" },
+  { id: "glass", label: "Glass" },
+  { id: "outline", label: "Outline" },
+];
 
 const tierDescriptions = {
   Unicorn: [
@@ -843,6 +901,85 @@ function getProfileAccent(accentId = "cyan") {
   return PROFILE_ACCENTS.find((accent) => accent.id === accentId) || PROFILE_ACCENTS[0];
 }
 
+function normalizeProfileTheme(value = {}) {
+  const parsed =
+    typeof value === "string"
+      ? (() => {
+          try {
+            return JSON.parse(value);
+          } catch {
+            return {};
+          }
+        })()
+      : value || {};
+
+  return {
+    preset: PROFILE_PRESETS.some((item) => item.id === parsed.preset)
+      ? parsed.preset
+      : DEFAULT_PROFILE_THEME.preset,
+    background: PROFILE_BACKGROUNDS.some((item) => item.id === parsed.background)
+      ? parsed.background
+      : DEFAULT_PROFILE_THEME.background,
+    font: PROFILE_FONTS.some((item) => item.id === parsed.font)
+      ? parsed.font
+      : DEFAULT_PROFILE_THEME.font,
+    cardStyle: PROFILE_CARD_STYLES.some((item) => item.id === parsed.cardStyle)
+      ? parsed.cardStyle
+      : DEFAULT_PROFILE_THEME.cardStyle,
+    showTests: parsed.showTests !== false,
+    showScoreboard: parsed.showScoreboard !== false,
+  };
+}
+
+function getProfileBackgroundStyle(theme, accent) {
+  const base = { borderColor: `${accent.color}44`, boxShadow: `0 22px 70px ${accent.glow}` };
+  const styles = {
+    spotlight: {
+      background: `radial-gradient(circle at 18% 0%, ${accent.glow} 0, transparent 34%), #09090b`,
+    },
+    grid: {
+      background: `linear-gradient(${accent.color}12 1px, transparent 1px), linear-gradient(90deg, ${accent.color}12 1px, transparent 1px), #09090b`,
+      backgroundSize: "26px 26px",
+    },
+    halo: {
+      background: `radial-gradient(circle at 50% 12%, ${accent.color}2b 0, transparent 28%), radial-gradient(circle at 100% 100%, ${accent.color}18 0, transparent 26%), #09090b`,
+    },
+    fade: {
+      background: `linear-gradient(145deg, ${accent.color}18, rgba(255,255,255,0.03) 38%, rgba(9,9,11,0.92)), #09090b`,
+    },
+    split: {
+      background: `linear-gradient(110deg, ${accent.color}1f 0%, rgba(24,24,27,0.88) 42%, rgba(0,0,0,0.94) 42%), #09090b`,
+    },
+  };
+
+  return { ...base, ...(styles[theme.background] || styles.spotlight) };
+}
+
+function getProfileHeadingClass(theme) {
+  const classes = {
+    bold: "break-words text-4xl font-black text-white sm:text-5xl",
+    display: "break-words text-5xl font-black uppercase text-white sm:text-6xl",
+    classic: "break-words font-serif text-4xl font-bold text-white sm:text-5xl",
+    compact: "break-words text-3xl font-black uppercase tracking-[0.16em] text-white sm:text-4xl",
+  };
+  return classes[theme.font] || classes.bold;
+}
+
+function getProfileBodyClass(theme) {
+  if (theme.font === "classic") return "font-serif";
+  if (theme.font === "compact") return "tracking-[0.02em]";
+  return "";
+}
+
+function getProfileCardClass(theme) {
+  const classes = {
+    solid: "rounded-lg border border-white/10 bg-zinc-900 p-5 text-left transition hover:-translate-y-1 hover:bg-white/10",
+    glass: "rounded-lg border border-white/10 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:bg-white/15",
+    outline: "rounded-lg border bg-transparent p-5 text-left transition hover:-translate-y-1 hover:bg-white/5",
+  };
+  return classes[theme.cardStyle] || classes.solid;
+}
+
 function isValidImageUrl(value = "") {
   if (!value.trim()) return false;
   try {
@@ -865,7 +1002,7 @@ async function ensureUserProfile(user) {
 
   const { data: existing, error: existingError } = await supabase
     .from("compatibility_profiles")
-    .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
+    .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent,profile_theme")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -889,8 +1026,9 @@ async function ensureUserProfile(user) {
         avatar_url: "",
         profile_bio: "",
         profile_accent: "cyan",
+        profile_theme: DEFAULT_PROFILE_THEME,
       })
-      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent,profile_theme")
       .single();
 
     if (!error) return data;
@@ -1213,7 +1351,7 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
 
     const { data: profileData, error: profileError } = await supabase
       .from("compatibility_profiles")
-      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent,profile_theme")
       .eq("username", profileRoute.username)
       .maybeSingle();
 
@@ -1259,16 +1397,19 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
   const displayName = profile?.display_name?.trim() || profile?.username;
   const avatarUrl = isValidImageUrl(profile?.avatar_url || "") ? profile.avatar_url.trim() : "";
   const accent = getProfileAccent(profile?.profile_accent);
+  const theme = normalizeProfileTheme(profile?.profile_theme);
   const isBrianProfile = profile?.username === "brian";
   const isOwnProfile = Boolean(session?.user?.id && profile?.user_id === session.user.id);
+  const showBrianScoreboard = isBrianProfile && theme.showScoreboard;
+  const showTests = theme.showTests;
 
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
       <BackButton onClick={() => navigate("dashboard")} />
 
       <section
-        className="rounded-lg border bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-7"
-        style={{ borderColor: `${accent.color}44`, boxShadow: `0 22px 70px ${accent.glow}` }}
+        className={`rounded-lg border p-5 shadow-2xl shadow-black/30 sm:p-7 ${getProfileBodyClass(theme)}`}
+        style={getProfileBackgroundStyle(theme, accent)}
       >
         {loading && <p className="text-zinc-300">Loading profile...</p>}
 
@@ -1303,9 +1444,7 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="break-words text-4xl font-black text-white sm:text-5xl">
-                    {displayName}
-                  </h1>
+                  <h1 className={getProfileHeadingClass(theme)}>{displayName}</h1>
                   <p className="mt-2 text-sm font-bold text-zinc-400">@{profile.username}</p>
                   {profile.profile_bio && (
                     <p className="mt-3 max-w-xl text-base leading-7 text-zinc-200">
@@ -1325,7 +1464,7 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
                     Edit Profile
                   </button>
                 )}
-                {isBrianProfile && (
+                {showBrianScoreboard && (
                   <button
                     type="button"
                     onClick={() => navigate("scoreboard")}
@@ -1339,11 +1478,11 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {isBrianProfile && (
+              {showBrianScoreboard && (
                 <button
                   type="button"
                   onClick={() => navigate("scoreboard")}
-                  className="rounded-lg border bg-zinc-900 p-5 text-left transition hover:-translate-y-1"
+                  className={getProfileCardClass(theme)}
                   style={{ borderColor: `${accent.color}99` }}
                 >
                   <p
@@ -1359,37 +1498,40 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
                 </button>
               )}
 
-              {tests.map((test) => (
-                <button
-                  key={test.id}
-                  type="button"
-                  onClick={() => navigateToPath(`/t/${test.public_id}`, "compatibility")}
-                  className="rounded-lg border border-white/10 bg-white/5 p-5 text-left transition hover:-translate-y-1 hover:bg-white/10"
-                  onMouseEnter={(event) => {
-                    event.currentTarget.style.borderColor = `${accent.color}88`;
-                  }}
-                  onMouseLeave={(event) => {
-                    event.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                  }}
-                >
-                  <p
-                    className="text-[10px] font-black uppercase tracking-[0.28em]"
-                    style={{ color: accent.color }}
+              {showTests &&
+                tests.map((test) => (
+                  <button
+                    key={test.id}
+                    type="button"
+                    onClick={() => navigateToPath(`/t/${test.public_id}`, "compatibility")}
+                    className={getProfileCardClass(theme)}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.borderColor = `${accent.color}88`;
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.borderColor =
+                        theme.cardStyle === "outline" ? `${accent.color}99` : "rgba(255,255,255,0.1)";
+                    }}
+                    style={theme.cardStyle === "outline" ? { borderColor: `${accent.color}66` } : {}}
                   >
-                    Test
-                  </p>
-                  <h2 className="mt-3 text-2xl font-black text-white">{test.title || "Test"}</h2>
-                  {test.description && (
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{test.description}</p>
-                  )}
-                  <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                    {questionCounts[test.id] || 0} questions
-                  </p>
-                </button>
-              ))}
+                    <p
+                      className="text-[10px] font-black uppercase tracking-[0.28em]"
+                      style={{ color: accent.color }}
+                    >
+                      Test
+                    </p>
+                    <h2 className="mt-3 text-2xl font-black text-white">{test.title || "Test"}</h2>
+                    {test.description && (
+                      <p className="mt-2 text-sm leading-6 text-zinc-300">{test.description}</p>
+                    )}
+                    <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                      {questionCounts[test.id] || 0} questions
+                    </p>
+                  </button>
+                ))}
             </div>
 
-            {!tests.length && !isBrianProfile && (
+            {showTests && !tests.length && !isBrianProfile && (
               <p className="mt-8 rounded-lg border border-white/10 bg-white/5 p-4 text-zinc-300">
                 No public tests yet.
               </p>
@@ -3564,6 +3706,7 @@ function SettingsPage({ navigate, navigateToPath }) {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [profileBio, setProfileBio] = useState("");
   const [profileAccent, setProfileAccent] = useState("cyan");
+  const [profileTheme, setProfileTheme] = useState(DEFAULT_PROFILE_THEME);
   const [notificationEmail, setNotificationEmail] = useState("");
   const [usernameStatus, setUsernameStatus] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -3585,6 +3728,7 @@ function SettingsPage({ navigate, navigateToPath }) {
         setAvatarUrl(loadedProfile?.avatar_url || "");
         setProfileBio(loadedProfile?.profile_bio || "");
         setProfileAccent(loadedProfile?.profile_accent || "cyan");
+        setProfileTheme(normalizeProfileTheme(loadedProfile?.profile_theme));
 
         const { data: notificationSettings } = await supabase
           .from("user_notification_settings")
@@ -3663,9 +3807,10 @@ function SettingsPage({ navigate, navigateToPath }) {
         avatar_url: avatarUrl.trim(),
         profile_bio: profileBio.trim(),
         profile_accent: getProfileAccent(profileAccent).id,
+        profile_theme: normalizeProfileTheme(profileTheme),
         updated_at: new Date().toISOString(),
       })
-      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent,profile_theme")
       .single();
 
     if (updateError) {
@@ -3702,16 +3847,18 @@ function SettingsPage({ navigate, navigateToPath }) {
         avatar_url: nextAvatarUrl,
         profile_bio: profileBio.trim().slice(0, 180),
         profile_accent: getProfileAccent(profileAccent).id,
+        profile_theme: normalizeProfileTheme(profileTheme),
         updated_at: new Date().toISOString(),
       })
-      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent,profile_theme")
       .single();
 
     if (updateError) {
       setError(
         updateError.message.includes("avatar_url") ||
           updateError.message.includes("profile_bio") ||
-          updateError.message.includes("profile_accent")
+          updateError.message.includes("profile_accent") ||
+          updateError.message.includes("profile_theme")
           ? "Profile customization needs the newest Supabase SQL setup first."
           : updateError.message
       );
@@ -3723,6 +3870,7 @@ function SettingsPage({ navigate, navigateToPath }) {
     setAvatarUrl(data.avatar_url || "");
     setProfileBio(data.profile_bio || "");
     setProfileAccent(data.profile_accent || "cyan");
+    setProfileTheme(normalizeProfileTheme(data.profile_theme));
     setMessage("Profile saved.");
   };
 
@@ -3930,6 +4078,185 @@ function SettingsPage({ navigate, navigateToPath }) {
                     title={accentOption.label}
                   />
                 ))}
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-white/10 bg-zinc-950/70 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                Profile designer
+              </p>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                {PROFILE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() =>
+                      setProfileTheme((current) => ({
+                        ...normalizeProfileTheme(current),
+                        ...preset.theme,
+                        preset: preset.id,
+                      }))
+                    }
+                    className={`rounded-md border px-3 py-3 text-left transition ${
+                      profileTheme.preset === preset.id
+                        ? "border-cyan-300 bg-cyan-950/40"
+                        : "border-white/10 bg-white/5 hover:border-white/30"
+                    }`}
+                  >
+                    <span className="block text-sm font-black text-white">{preset.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-zinc-400">
+                      {preset.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Background
+                  </span>
+                  <select
+                    value={profileTheme.background}
+                    onChange={(event) =>
+                      setProfileTheme((current) => ({
+                        ...normalizeProfileTheme(current),
+                        background: event.target.value,
+                        preset: "custom",
+                      }))
+                    }
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                  >
+                    {PROFILE_BACKGROUNDS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Font
+                  </span>
+                  <select
+                    value={profileTheme.font}
+                    onChange={(event) =>
+                      setProfileTheme((current) => ({
+                        ...normalizeProfileTheme(current),
+                        font: event.target.value,
+                        preset: "custom",
+                      }))
+                    }
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                  >
+                    {PROFILE_FONTS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Cards
+                  </span>
+                  <select
+                    value={profileTheme.cardStyle}
+                    onChange={(event) =>
+                      setProfileTheme((current) => ({
+                        ...normalizeProfileTheme(current),
+                        cardStyle: event.target.value,
+                        preset: "custom",
+                      }))
+                    }
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                  >
+                    {PROFILE_CARD_STYLES.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {[
+                  ["showTests", "Show tests"],
+                  ["showScoreboard", "Show featured board"],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      setProfileTheme((current) => {
+                        const theme = normalizeProfileTheme(current);
+                        return { ...theme, [key]: !theme[key], preset: "custom" };
+                      })
+                    }
+                    className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2 text-left"
+                  >
+                    <span className="font-bold text-white">{label}</span>
+                    <span
+                      className={`relative h-4 w-8 rounded-full transition ${
+                        normalizeProfileTheme(profileTheme)[key] ? "bg-emerald-400" : "bg-red-500"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                          normalizeProfileTheme(profileTheme)[key] ? "left-[18px]" : "left-0.5"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={`mt-4 rounded-lg border p-4 ${getProfileBodyClass(
+                  normalizeProfileTheme(profileTheme)
+                )}`}
+                style={getProfileBackgroundStyle(
+                  normalizeProfileTheme(profileTheme),
+                  getProfileAccent(profileAccent)
+                )}
+              >
+                <p
+                  className="text-[10px] font-black uppercase tracking-[0.22em]"
+                  style={{ color: getProfileAccent(profileAccent).color }}
+                >
+                  Preview
+                </p>
+                <h3 className={`mt-2 ${getProfileHeadingClass(normalizeProfileTheme(profileTheme))}`}>
+                  {displayName || username || "Your profile"}
+                </h3>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div
+                    className={getProfileCardClass(normalizeProfileTheme(profileTheme))}
+                    style={
+                      normalizeProfileTheme(profileTheme).cardStyle === "outline"
+                        ? { borderColor: `${getProfileAccent(profileAccent).color}66` }
+                        : {}
+                    }
+                  >
+                    <p className="text-sm font-black text-white">Sample Test</p>
+                    <p className="mt-1 text-xs text-zinc-400">This is the vibe people will see.</p>
+                  </div>
+                  <div
+                    className={getProfileCardClass(normalizeProfileTheme(profileTheme))}
+                    style={
+                      normalizeProfileTheme(profileTheme).cardStyle === "outline"
+                        ? { borderColor: `${getProfileAccent(profileAccent).color}66` }
+                        : {}
+                    }
+                  >
+                    <p className="text-sm font-black text-white">Another Block</p>
+                    <p className="mt-1 text-xs text-zinc-400">Controlled chaos, no raw code.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
