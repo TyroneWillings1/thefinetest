@@ -3250,6 +3250,7 @@ function SettingsPage({ navigate }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState("");
+  const [notificationEmail, setNotificationEmail] = useState("");
   const [usernameStatus, setUsernameStatus] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -3266,6 +3267,14 @@ function SettingsPage({ navigate }) {
         const loadedProfile = await ensureUserProfile(data.session.user);
         setProfile(loadedProfile);
         setUsername(loadedProfile?.username || "");
+
+        const { data: notificationSettings } = await supabase
+          .from("user_notification_settings")
+          .select("result_email")
+          .eq("user_id", data.session.user.id)
+          .maybeSingle();
+
+        setNotificationEmail(notificationSettings?.result_email || "");
       }
       setLoading(false);
     });
@@ -3353,6 +3362,37 @@ function SettingsPage({ navigate }) {
     setMessage("Username saved.");
   };
 
+  const saveNotificationEmail = async () => {
+    setError("");
+    setMessage("");
+
+    const nextEmail = notificationEmail.trim();
+    if (nextEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      setError("Enter a valid email address, or leave it blank to use your account email.");
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("user_notification_settings")
+      .upsert({
+        user_id: session.user.id,
+        result_email: nextEmail,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (updateError) {
+      setError(
+        updateError.message.includes("user_notification_settings")
+          ? "Notification email settings need the newest Supabase SQL setup first."
+          : updateError.message
+      );
+      return;
+    }
+
+    setNotificationEmail(nextEmail);
+    setMessage(nextEmail ? "Notification email saved." : "Result emails will use your account email.");
+  };
+
   const deleteAccount = async () => {
     setError("");
     setMessage("");
@@ -3389,6 +3429,8 @@ function SettingsPage({ navigate }) {
       <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 sm:p-8">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">Settings</p>
         <h1 className="mt-4 text-4xl font-black text-white">Account Settings</h1>
+        {message && <p className="mt-4 text-sm font-bold text-emerald-300">{message}</p>}
+        {error && <p className="mt-4 text-sm font-bold text-cyan-200">{error}</p>}
 
         <div className="mt-8 grid gap-4">
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
@@ -3433,8 +3475,34 @@ function SettingsPage({ navigate }) {
                 Save
               </button>
             </div>
-            {message && <p className="mt-3 text-sm font-bold text-emerald-300">{message}</p>}
-            {error && <p className="mt-3 text-sm font-bold text-cyan-200">{error}</p>}
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h2 className="text-xl font-black text-white">Result Emails</h2>
+            <p className="mt-2 leading-7 text-zinc-300">
+              Test result notifications go to this email. Leave it blank to use your account email.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <label>
+                <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Notification email
+                </span>
+                <input
+                  type="email"
+                  value={notificationEmail}
+                  onChange={(event) => setNotificationEmail(event.target.value)}
+                  className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                  placeholder={session.user.email || "name@example.com"}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={saveNotificationEmail}
+                className="self-end rounded-md bg-cyan-300 px-5 py-2 font-black text-zinc-950 transition hover:bg-white"
+              >
+                Save
+              </button>
+            </div>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">

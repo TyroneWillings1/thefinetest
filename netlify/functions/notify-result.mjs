@@ -160,6 +160,20 @@ async function getOwnerEmail(ownerId, serviceRoleKey) {
   return user.email || "";
 }
 
+async function getOwnerNotificationEmail(ownerId, serviceRoleKey) {
+  let settings;
+  try {
+    [settings] = await getRows(
+      `user_notification_settings?user_id=eq.${ownerId}&select=result_email`,
+      serviceRoleKey
+    );
+  } catch (error) {
+    console.warn("notification settings unavailable", error);
+  }
+
+  return settings?.result_email?.trim() || "";
+}
+
 function buildEmail({ submission, test, answers, adminUrl }) {
   const name = submission.name || "Anonymous";
   const answerRows = answers
@@ -309,15 +323,16 @@ export default async (request) => {
       return json({ ok: true, skipped: true, reason: "Email notifications are disabled for this test." });
     }
 
-    const [answers, ownerEmail] = await Promise.all([
+    const [answers, ownerEmail, ownerNotificationEmail] = await Promise.all([
       getRows(
         `compatibility_answers?submission_id=eq.${submission.id}&select=question_prompt,option_label,points,created_at&order=created_at.asc`,
         serviceRoleKey
       ),
       getOwnerEmail(test.owner_id, serviceRoleKey),
+      getOwnerNotificationEmail(test.owner_id, serviceRoleKey),
     ]);
 
-    const to = ownerEmail;
+    const to = ownerNotificationEmail || ownerEmail;
     if (!to) {
       await logNotification(serviceRoleKey, submission.id, "skipped", "No recipient email found.");
       return json({ ok: false, skipped: true, reason: "No recipient email found." }, 202);

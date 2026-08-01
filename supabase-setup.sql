@@ -91,6 +91,13 @@ create table if not exists public.compatibility_profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.user_notification_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade default auth.uid(),
+  result_email text default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.calculator_saves (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
@@ -308,6 +315,7 @@ alter table public.compatibility_answers enable row level security;
 alter table public.compatibility_result_bands enable row level security;
 alter table public.compatibility_settings enable row level security;
 alter table public.compatibility_profiles enable row level security;
+alter table public.user_notification_settings enable row level security;
 alter table public.calculator_saves enable row level security;
 alter table public.compatibility_tests enable row level security;
 alter table public.scoreboard_admins enable row level security;
@@ -559,6 +567,28 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can update their own compatibility profile" on public.compatibility_profiles;
 create policy "Users can update their own compatibility profile"
 on public.compatibility_profiles
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read their notification settings" on public.user_notification_settings;
+create policy "Users can read their notification settings"
+on public.user_notification_settings
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can create their notification settings" on public.user_notification_settings;
+create policy "Users can create their notification settings"
+on public.user_notification_settings
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their notification settings" on public.user_notification_settings;
+create policy "Users can update their notification settings"
+on public.user_notification_settings
 for update
 to authenticated
 using (auth.uid() = user_id)
