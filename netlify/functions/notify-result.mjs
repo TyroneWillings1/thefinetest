@@ -317,7 +317,7 @@ export default async (request) => {
       getOwnerEmail(test.owner_id, serviceRoleKey),
     ]);
 
-    const to = env("RESULTS_EMAIL_TO") || ownerEmail;
+    const to = ownerEmail || env("RESULTS_EMAIL_TO");
     if (!to) {
       await logNotification(serviceRoleKey, submission.id, "skipped", "No recipient email found.");
       return json({ ok: false, skipped: true, reason: "No recipient email found." }, 202);
