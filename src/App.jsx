@@ -3957,6 +3957,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   const [resultMarginMode, setResultMarginMode] = useState("full");
   const [advancedResultsOn, setAdvancedResultsOn] = useState(false);
   const [savedAdvancedResultsOn, setSavedAdvancedResultsOn] = useState(false);
+  const [resultMarginsExpanded, setResultMarginsExpanded] = useState(false);
   const [deletedResultBandIds, setDeletedResultBandIds] = useState([]);
   const [quizDetails, setQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
   const [savedQuizDetails, setSavedQuizDetails] = useState(DEFAULT_QUIZ_DETAILS);
@@ -4608,6 +4609,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
   };
 
   const addResultBand = () => {
+    setResultMarginsExpanded(true);
     const setter = resultMarginMode === "short" ? setShortResultBands : setResultBands;
     setter((current) => [
       ...current,
@@ -5495,7 +5497,28 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                   </p>
                 </div>
               )}
-              {advancedResultsOn &&
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-zinc-950/70 p-3">
+                <div>
+                  <p className="text-sm font-black text-white">Saved result margins</p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    {activeResultBands.length} {activeResultBands.length === 1 ? "margin" : "margins"} saved.
+                    {advancedResultsOn
+                      ? " Expand this when you want to edit the result ranges."
+                      : " Enable custom result margins before editing."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResultMarginsExpanded((current) => !current)}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!advancedResultsOn && activeResultBands.length === 0}
+                >
+                  {resultMarginsExpanded ? "Collapse Margins" : "Expand Margins"}
+                </button>
+              </div>
+
+              {resultMarginsExpanded &&
+                advancedResultsOn &&
                 quizDetails.short_test_enabled &&
                 quizDetails.short_results_enabled && (
                   <div className="mt-5 flex flex-wrap gap-2">
@@ -5525,6 +5548,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                 )}
             </div>
 
+            {resultMarginsExpanded && (
             <div className={`grid gap-4 ${advancedResultsOn ? "" : "pointer-events-none opacity-45"}`}>
               {activeResultBands.map((band) => (
                 <article key={band.id} className="rounded-lg border border-white/10 p-4">
@@ -5610,6 +5634,7 @@ function AdminPanel({ navigate, adminTest = { testId: "" } }) {
                 </article>
               ))}
             </div>
+            )}
 
             <div className="flex flex-wrap gap-3">
               <button
