@@ -26,6 +26,41 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
+function getSenderAddress() {
+  const configuredFrom = env("RESULTS_EMAIL_FROM").trim();
+
+  if (!configuredFrom || configuredFrom.includes("@resend.dev")) {
+    return "The FINE Test <results@thefinetest.com>";
+  }
+
+  return configuredFrom;
+}
+
+async function getResendErrorMessage(response) {
+  const fallback = `Resend email failed with status ${response.status}.`;
+
+  try {
+    const body = await response.json();
+    const message = body?.message || body?.error || fallback;
+
+    if (/testing emails/i.test(message) || /verify a domain/i.test(message)) {
+      return "Resend blocked the email because the sending domain is not fully verified yet.";
+    }
+
+    if (/domain/i.test(message) && /verified/i.test(message)) {
+      return "Resend blocked the email because the sender domain is not verified.";
+    }
+
+    return message;
+  } catch {
+    try {
+      return (await response.text()) || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+}
+
 function supabaseHeaders(serviceRoleKey) {
   return {
     apikey: serviceRoleKey,
@@ -122,7 +157,7 @@ function buildEmail({ submission, test, answers, adminUrl }) {
 
   const subject = `${name} scored ${submission.percent}% on ${test.title}`;
   const text = [
-    `New compatibility result for ${test.title}`,
+    `New test result for ${test.title}`,
     ``,
     `Name: ${name}`,
     `Score: ${submission.percent}% (${submission.score}/${submission.max_score})`,
@@ -138,7 +173,7 @@ function buildEmail({ submission, test, answers, adminUrl }) {
     <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#ffffff;color:#111827;">
       <div style="padding:28px;border-radius:16px;background:#050505;color:#ffffff;">
         <p style="margin:0 0 12px;color:#67e8f9;font-size:12px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;">thefinetest</p>
-        <h1 style="margin:0;font-size:30px;line-height:1.1;">New compatibility result</h1>
+        <h1 style="margin:0;font-size:30px;line-height:1.1;">New test result</h1>
         <p style="margin:16px 0 0;color:#d4d4d8;font-size:16px;">${escapeHtml(name)} submitted ${escapeHtml(test.title)}.</p>
       </div>
       <div style="padding:24px 0;">
@@ -168,9 +203,9 @@ function buildEmail({ submission, test, answers, adminUrl }) {
 
 async function sendEmail({ to, subject, text, html }) {
   const apiKey = env("RESEND_API_KEY");
-  const from = env("RESULTS_EMAIL_FROM");
+  const from = getSenderAddress();
 
-  if (!apiKey || !from) {
+  if (!apiKey) {
     return { skipped: true, reason: "Email environment variables are not configured." };
   }
 
@@ -184,7 +219,7 @@ async function sendEmail({ to, subject, text, html }) {
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new Error(await getResendErrorMessage(response));
   }
 
   return response.json();

@@ -693,6 +693,29 @@ function logsBySubmissionId(logs = []) {
   }, {});
 }
 
+function cleanNotificationMessage(message = "") {
+  const rawMessage = String(message || "").trim();
+  if (!rawMessage) return "";
+
+  let text = rawMessage;
+  try {
+    const parsed = JSON.parse(rawMessage);
+    text = parsed?.message || parsed?.error || rawMessage;
+  } catch {
+    text = rawMessage;
+  }
+
+  if (/testing emails/i.test(text) || /verify a domain/i.test(text)) {
+    return "Resend blocked this email because the sending domain was not fully verified yet.";
+  }
+
+  if (/domain/i.test(text) && /verified/i.test(text)) {
+    return "Resend blocked this email because the sender domain is not verified yet.";
+  }
+
+  return text;
+}
+
 function NotificationLogSummary({ logs = [] }) {
   const latestLog = logs[0];
 
@@ -718,7 +741,7 @@ function NotificationLogSummary({ logs = [] }) {
       </span>
       <span className="text-zinc-600"> · </span>
       <span>{new Date(latestLog.created_at).toLocaleString()}</span>
-      {latestLog.message && <p className="mt-1 text-zinc-500">{latestLog.message}</p>}
+      {latestLog.message && <p className="mt-1 text-zinc-500">{cleanNotificationMessage(latestLog.message)}</p>}
     </div>
   );
 }
