@@ -2911,9 +2911,6 @@ function LoginPage({ navigate, isLanding = false }) {
           View Public Scoreboard
         </button>
 
-        <p className="mt-5 text-sm leading-6 text-zinc-400">
-          Phone number login can be added later, but it needs SMS provider setup first.
-        </p>
       </section>
     </main>
   );
