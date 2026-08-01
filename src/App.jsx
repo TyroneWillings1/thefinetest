@@ -1185,6 +1185,7 @@ function Hub({ navigate, navigateToPath }) {
 
 function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username: "" } }) {
   const [profile, setProfile] = useState(null);
+  const [session, setSession] = useState(null);
   const [tests, setTests] = useState([]);
   const [questionCounts, setQuestionCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -1206,6 +1207,9 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
       setLoading(false);
       return;
     }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    setSession(sessionData.session);
 
     const { data: profileData, error: profileError } = await supabase
       .from("compatibility_profiles")
@@ -1256,6 +1260,7 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
   const avatarUrl = isValidImageUrl(profile?.avatar_url || "") ? profile.avatar_url.trim() : "";
   const accent = getProfileAccent(profile?.profile_accent);
   const isBrianProfile = profile?.username === "brian";
+  const isOwnProfile = Boolean(session?.user?.id && profile?.user_id === session.user.id);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
@@ -1298,25 +1303,39 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
                   )}
                 </div>
                 <div className="min-w-0">
-                <h1 className="break-words text-4xl font-black text-white sm:text-5xl">{displayName}</h1>
-                <p className="mt-2 text-sm font-bold text-zinc-400">@{profile.username}</p>
-                {profile.profile_bio && (
-                  <p className="mt-3 max-w-xl text-base leading-7 text-zinc-200">
-                    {profile.profile_bio}
-                  </p>
+                  <h1 className="break-words text-4xl font-black text-white sm:text-5xl">
+                    {displayName}
+                  </h1>
+                  <p className="mt-2 text-sm font-bold text-zinc-400">@{profile.username}</p>
+                  {profile.profile_bio && (
+                    <p className="mt-3 max-w-xl text-base leading-7 text-zinc-200">
+                      {profile.profile_bio}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isOwnProfile && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("settings")}
+                    className="rounded-md border px-4 py-3 font-black text-white transition hover:bg-white/10"
+                    style={{ borderColor: `${accent.color}88` }}
+                  >
+                    Edit Profile
+                  </button>
+                )}
+                {isBrianProfile && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("scoreboard")}
+                    className="rounded-md border px-4 py-3 font-black text-white transition hover:bg-white/10"
+                    style={{ borderColor: `${accent.color}88` }}
+                  >
+                    Brian's Top 20
+                  </button>
                 )}
               </div>
-              </div>
-              {isBrianProfile && (
-                <button
-                  type="button"
-                  onClick={() => navigate("scoreboard")}
-                  className="rounded-md border px-4 py-3 font-black text-white transition hover:bg-white/10"
-                  style={{ borderColor: `${accent.color}88` }}
-                >
-                  Brian's Top 20
-                </button>
-              )}
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
