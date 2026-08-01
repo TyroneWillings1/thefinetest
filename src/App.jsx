@@ -2616,6 +2616,7 @@ function LoginPage({ navigate, isLanding = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [googleWidgetReady, setGoogleWidgetReady] = useState(false);
   const googleButtonRef = useRef(null);
   const googleNonceRef = useRef("");
 
@@ -2646,6 +2647,7 @@ function LoginPage({ navigate, isLanding = false }) {
 
     const renderGoogleButton = async () => {
       if (mode === "reset" || !googleButtonRef.current) return;
+      setGoogleWidgetReady(false);
 
       try {
         const google = await loadGoogleIdentityScript();
@@ -2685,9 +2687,15 @@ function LoginPage({ navigate, isLanding = false }) {
           theme: "outline",
           width: Math.min(360, googleButtonRef.current.clientWidth || 360),
         });
+
+        window.setTimeout(() => {
+          if (!cancelled && googleButtonRef.current?.querySelector("iframe")) {
+            setGoogleWidgetReady(true);
+          }
+        }, 500);
       } catch {
         if (!cancelled) {
-          setError("Google sign-in could not load. Email sign-in still works.");
+          setGoogleWidgetReady(false);
         }
       }
     };
@@ -2698,6 +2706,24 @@ function LoginPage({ navigate, isLanding = false }) {
       cancelled = true;
     };
   }, [mode, navigate]);
+
+  const googleRedirectLogin = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+
+    if (googleError) {
+      setError(googleError.message);
+      setBusy(false);
+    }
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -2732,28 +2758,6 @@ function LoginPage({ navigate, isLanding = false }) {
     }
 
     setBusy(false);
-  };
-
-  const socialLogin = async (provider) => {
-    setBusy(true);
-    setError("");
-    setMessage("");
-
-    const { error: socialError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-
-    if (socialError) {
-      setError(
-        socialError.message.toLowerCase().includes("provider")
-          ? "Facebook login is not enabled in Supabase yet. Enable the provider in Supabase Auth, then this button will work."
-          : socialError.message
-      );
-      setBusy(false);
-    }
   };
 
   const sendPasswordReset = async () => {
@@ -2823,18 +2827,20 @@ function LoginPage({ navigate, isLanding = false }) {
         </div>}
 
         {mode !== "reset" && <div className="mt-6 grid gap-3">
+          {!googleWidgetReady && (
+            <button
+              type="button"
+              onClick={googleRedirectLogin}
+              disabled={busy}
+              className="flex min-h-[44px] w-full items-center justify-center rounded-md border border-white/10 bg-white px-4 py-3 font-black text-zinc-950 transition hover:bg-cyan-100 disabled:opacity-60"
+            >
+              Continue with Google
+            </button>
+          )}
           <div
             ref={googleButtonRef}
-            className="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded-md bg-white"
+            className={`min-h-[44px] w-full overflow-hidden rounded-md ${googleWidgetReady ? "block" : "hidden"}`}
           />
-          <button
-            type="button"
-            onClick={() => socialLogin("facebook")}
-            disabled={busy}
-            className="rounded-md border border-white/10 bg-[#1877f2] px-4 py-3 font-black text-white transition hover:bg-[#0f63ce] disabled:opacity-60"
-          >
-            Continue with Facebook
-          </button>
         </div>}
 
         {mode !== "reset" && <div className="my-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
@@ -2906,7 +2912,7 @@ function LoginPage({ navigate, isLanding = false }) {
         </button>
 
         <p className="mt-5 text-sm leading-6 text-zinc-400">
-          Google sign-in opens directly from this page. Facebook still needs provider setup before it works.
+          Phone number login can be added later, but it needs SMS provider setup first.
         </p>
       </section>
     </main>
