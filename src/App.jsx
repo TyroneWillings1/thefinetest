@@ -127,6 +127,13 @@ const SHORT_SCOREBOARD_BONUS_BANDS = [
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 const TEST_ID_PATTERN = /^[a-z0-9]{6,12}$/;
+const PROFILE_ACCENTS = [
+  { id: "cyan", label: "Cyan", color: "#67e8f9", glow: "rgba(103, 232, 249, 0.28)" },
+  { id: "gold", label: "Gold", color: "#facc15", glow: "rgba(250, 204, 21, 0.28)" },
+  { id: "green", label: "Green", color: "#34d399", glow: "rgba(52, 211, 153, 0.26)" },
+  { id: "red", label: "Red", color: "#fb7185", glow: "rgba(251, 113, 133, 0.26)" },
+  { id: "violet", label: "Violet", color: "#a78bfa", glow: "rgba(167, 139, 250, 0.26)" },
+];
 
 const tierDescriptions = {
   Unicorn: [
@@ -832,12 +839,33 @@ function usernameFromUser(user) {
   return base.length >= 3 ? base : `${base}123`;
 }
 
+function getProfileAccent(accentId = "cyan") {
+  return PROFILE_ACCENTS.find((accent) => accent.id === accentId) || PROFILE_ACCENTS[0];
+}
+
+function isValidImageUrl(value = "") {
+  if (!value.trim()) return false;
+  try {
+    const url = new URL(value.trim());
+    return ["http:", "https:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function getProfileInitials(displayName = "", username = "") {
+  const source = displayName.trim() || username.trim() || "Profile";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
 async function ensureUserProfile(user) {
   if (!user) return null;
 
   const { data: existing, error: existingError } = await supabase
     .from("compatibility_profiles")
-    .select("user_id,username,display_name")
+    .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -858,8 +886,11 @@ async function ensureUserProfile(user) {
         user_id: user.id,
         username,
         display_name: "",
+        avatar_url: "",
+        profile_bio: "",
+        profile_accent: "cyan",
       })
-      .select("user_id,username,display_name")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
       .single();
 
     if (!error) return data;
@@ -1128,7 +1159,7 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
 
     const { data: profileData, error: profileError } = await supabase
       .from("compatibility_profiles")
-      .select("user_id,username")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
       .eq("username", profileRoute.username)
       .maybeSingle();
 
@@ -1171,14 +1202,19 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
     setLoading(false);
   };
 
-  const displayName = profile?.username;
+  const displayName = profile?.display_name?.trim() || profile?.username;
+  const avatarUrl = isValidImageUrl(profile?.avatar_url || "") ? profile.avatar_url.trim() : "";
+  const accent = getProfileAccent(profile?.profile_accent);
   const isBrianProfile = profile?.username === "brian";
 
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:py-12">
       <BackButton onClick={() => navigate("dashboard")} />
 
-      <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-7">
+      <section
+        className="rounded-lg border bg-zinc-950/70 p-5 shadow-2xl shadow-black/30 sm:p-7"
+        style={{ borderColor: `${accent.color}44`, boxShadow: `0 22px 70px ${accent.glow}` }}
+      >
         {loading && <p className="text-zinc-300">Loading profile...</p>}
 
         {!loading && error && (
@@ -1189,19 +1225,44 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
 
         {!loading && profile && (
           <>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
+            <p
+              className="text-xs font-black uppercase tracking-[0.28em]"
+              style={{ color: accent.color }}
+            >
               Public profile
             </p>
-            <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 className="text-4xl font-black text-white sm:text-5xl">{displayName}</h1>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-5">
+              <div className="flex min-w-0 flex-wrap items-center gap-4">
+                <div
+                  className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-zinc-900 text-3xl font-black text-zinc-950"
+                  style={{ borderColor: `${accent.color}88`, backgroundColor: accent.color }}
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getProfileInitials(displayName, profile.username)
+                  )}
+                </div>
+                <div className="min-w-0">
+                <h1 className="break-words text-4xl font-black text-white sm:text-5xl">{displayName}</h1>
                 <p className="mt-2 text-sm font-bold text-zinc-400">@{profile.username}</p>
+                {profile.profile_bio && (
+                  <p className="mt-3 max-w-xl text-base leading-7 text-zinc-200">
+                    {profile.profile_bio}
+                  </p>
+                )}
+              </div>
               </div>
               {isBrianProfile && (
                 <button
                   type="button"
                   onClick={() => navigate("scoreboard")}
-                  className="rounded-md border border-yellow-300/50 px-4 py-3 font-black text-yellow-100 transition hover:bg-yellow-300/10"
+                  className="rounded-md border px-4 py-3 font-black text-white transition hover:bg-white/10"
+                  style={{ borderColor: `${accent.color}88` }}
                 >
                   Brian's Top 20
                 </button>
@@ -1213,9 +1274,13 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
                 <button
                   type="button"
                   onClick={() => navigate("scoreboard")}
-                  className="rounded-lg border border-yellow-300/45 bg-zinc-900 p-5 text-left transition hover:-translate-y-1 hover:border-yellow-200"
+                  className="rounded-lg border bg-zinc-900 p-5 text-left transition hover:-translate-y-1"
+                  style={{ borderColor: `${accent.color}99` }}
                 >
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-yellow-200">
+                  <p
+                    className="text-[10px] font-black uppercase tracking-[0.28em]"
+                    style={{ color: accent.color }}
+                  >
                     Featured
                   </p>
                   <h2 className="mt-3 text-3xl font-black text-white">Brian's Top 20</h2>
@@ -1230,9 +1295,18 @@ function PublicProfilePage({ navigate, navigateToPath, profileRoute = { username
                   key={test.id}
                   type="button"
                   onClick={() => navigateToPath(`/t/${test.public_id}`, "compatibility")}
-                  className="rounded-lg border border-white/10 bg-white/5 p-5 text-left transition hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-white/10"
+                  className="rounded-lg border border-white/10 bg-white/5 p-5 text-left transition hover:-translate-y-1 hover:bg-white/10"
+                  onMouseEnter={(event) => {
+                    event.currentTarget.style.borderColor = `${accent.color}88`;
+                  }}
+                  onMouseLeave={(event) => {
+                    event.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                  }}
                 >
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">
+                  <p
+                    className="text-[10px] font-black uppercase tracking-[0.28em]"
+                    style={{ color: accent.color }}
+                  >
                     Test
                   </p>
                   <h2 className="mt-3 text-2xl font-black text-white">{test.title || "Test"}</h2>
@@ -3417,6 +3491,10 @@ function SettingsPage({ navigate, navigateToPath }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [profileBio, setProfileBio] = useState("");
+  const [profileAccent, setProfileAccent] = useState("cyan");
   const [notificationEmail, setNotificationEmail] = useState("");
   const [usernameStatus, setUsernameStatus] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -3434,6 +3512,10 @@ function SettingsPage({ navigate, navigateToPath }) {
         const loadedProfile = await ensureUserProfile(data.session.user);
         setProfile(loadedProfile);
         setUsername(loadedProfile?.username || "");
+        setDisplayName(loadedProfile?.display_name || "");
+        setAvatarUrl(loadedProfile?.avatar_url || "");
+        setProfileBio(loadedProfile?.profile_bio || "");
+        setProfileAccent(loadedProfile?.profile_accent || "cyan");
 
         const { data: notificationSettings } = await supabase
           .from("user_notification_settings")
@@ -3508,10 +3590,13 @@ function SettingsPage({ navigate, navigateToPath }) {
       .upsert({
         user_id: session.user.id,
         username: nextUsername,
-        display_name: profile?.display_name || "",
+        display_name: displayName.trim(),
+        avatar_url: avatarUrl.trim(),
+        profile_bio: profileBio.trim(),
+        profile_accent: getProfileAccent(profileAccent).id,
         updated_at: new Date().toISOString(),
       })
-      .select("user_id,username,display_name")
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
       .single();
 
     if (updateError) {
@@ -3527,6 +3612,49 @@ function SettingsPage({ navigate, navigateToPath }) {
     setUsername(data.username);
     setUsernameStatus("Username saved.");
     setMessage("Username saved.");
+  };
+
+  const saveProfileDetails = async () => {
+    setError("");
+    setMessage("");
+
+    const nextAvatarUrl = avatarUrl.trim();
+    if (nextAvatarUrl && !isValidImageUrl(nextAvatarUrl)) {
+      setError("Use a full image URL that starts with http:// or https://.");
+      return;
+    }
+
+    const { data, error: updateError } = await supabase
+      .from("compatibility_profiles")
+      .upsert({
+        user_id: session.user.id,
+        username: profile?.username || normalizeUsername(username),
+        display_name: displayName.trim().slice(0, 60),
+        avatar_url: nextAvatarUrl,
+        profile_bio: profileBio.trim().slice(0, 180),
+        profile_accent: getProfileAccent(profileAccent).id,
+        updated_at: new Date().toISOString(),
+      })
+      .select("user_id,username,display_name,avatar_url,profile_bio,profile_accent")
+      .single();
+
+    if (updateError) {
+      setError(
+        updateError.message.includes("avatar_url") ||
+          updateError.message.includes("profile_bio") ||
+          updateError.message.includes("profile_accent")
+          ? "Profile customization needs the newest Supabase SQL setup first."
+          : updateError.message
+      );
+      return;
+    }
+
+    setProfile(data);
+    setDisplayName(data.display_name || "");
+    setAvatarUrl(data.avatar_url || "");
+    setProfileBio(data.profile_bio || "");
+    setProfileAccent(data.profile_accent || "cyan");
+    setMessage("Profile saved.");
   };
 
   const saveNotificationEmail = async () => {
@@ -3608,8 +3736,7 @@ function SettingsPage({ navigate, navigateToPath }) {
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h2 className="text-xl font-black text-white">Username</h2>
             <p className="mt-2 leading-7 text-zinc-300">
-              Your username is saved to your account for identity and future profile features.
-              Share links currently use short test IDs.
+              Your username controls your public profile URL. Test share links still use short test IDs.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
               <label>
@@ -3651,6 +3778,110 @@ function SettingsPage({ navigate, navigateToPath }) {
                 View Public Profile
               </button>
             )}
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h2 className="text-xl font-black text-white">Public Profile</h2>
+            <p className="mt-2 leading-7 text-zinc-300">
+              Make your page feel like yours without turning it into a whole dating profile.
+            </p>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-[auto_1fr]">
+              <div
+                className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border text-3xl font-black text-zinc-950"
+                style={{
+                  borderColor: `${getProfileAccent(profileAccent).color}88`,
+                  backgroundColor: getProfileAccent(profileAccent).color,
+                }}
+              >
+                {isValidImageUrl(avatarUrl) ? (
+                  <img src={avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  getProfileInitials(displayName, username)
+                )}
+              </div>
+
+              <div className="grid gap-3">
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Display name
+                  </span>
+                  <input
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value.slice(0, 60))}
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    placeholder={username || "Name"}
+                  />
+                </label>
+
+                <label>
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                    Profile photo URL
+                  </span>
+                  <input
+                    value={avatarUrl}
+                    onChange={(event) => setAvatarUrl(event.target.value)}
+                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                    placeholder="https://..."
+                  />
+                </label>
+              </div>
+            </div>
+
+            <label className="mt-4 block">
+              <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                Bio or status
+              </span>
+              <textarea
+                value={profileBio}
+                onChange={(event) => setProfileBio(event.target.value.slice(0, 180))}
+                className="min-h-24 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white"
+                placeholder="A short line about your tests, your mood, or whatever this page is giving."
+              />
+              <span className="mt-1 block text-right text-xs font-bold text-zinc-500">
+                {profileBio.length}/180
+              </span>
+            </label>
+
+            <div className="mt-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-zinc-400">
+                Accent color
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PROFILE_ACCENTS.map((accentOption) => (
+                  <button
+                    key={accentOption.id}
+                    type="button"
+                    onClick={() => setProfileAccent(accentOption.id)}
+                    className={`h-9 w-9 rounded-full border-2 transition ${
+                      profileAccent === accentOption.id ? "border-white" : "border-white/10"
+                    }`}
+                    style={{ backgroundColor: accentOption.color }}
+                    aria-label={`Use ${accentOption.label} accent`}
+                    title={accentOption.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={saveProfileDetails}
+                className="rounded-md bg-cyan-300 px-5 py-2 font-black text-zinc-950 transition hover:bg-white"
+              >
+                Save Profile
+              </button>
+              {USERNAME_PATTERN.test(username) && (
+                <button
+                  type="button"
+                  onClick={() => navigateToPath(`/@${normalizeUsername(username)}`, "profile")}
+                  className="rounded-md border border-cyan-300/30 px-4 py-2 text-sm font-black text-cyan-100 transition hover:bg-cyan-950/40"
+                >
+                  Preview
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">

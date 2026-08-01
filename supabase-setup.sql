@@ -87,6 +87,9 @@ create table if not exists public.compatibility_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
   display_name text default '',
+  avatar_url text default '',
+  profile_bio text default '',
+  profile_accent text not null default 'cyan',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -248,6 +251,15 @@ add column if not exists listed_on_profile boolean not null default true;
 update public.compatibility_profiles
 set display_name = ''
 where display_name like '%@%';
+
+alter table public.compatibility_profiles
+add column if not exists avatar_url text default '';
+
+alter table public.compatibility_profiles
+add column if not exists profile_bio text default '';
+
+alter table public.compatibility_profiles
+add column if not exists profile_accent text not null default 'cyan';
 
 alter table public.compatibility_tests
 add column if not exists short_results_enabled boolean not null default false;
