@@ -969,7 +969,25 @@ function BackButton({ onClick }) {
   );
 }
 
-function AccountDrawer({ onClose, navigate }) {
+function AccountDrawer({ onClose, navigate, navigateToPath }) {
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) return;
+      const loadedProfile = await ensureUserProfile(data.session.user);
+      if (mounted) setProfile(loadedProfile);
+    };
+
+    loadProfile();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     onClose();
@@ -979,6 +997,21 @@ function AccountDrawer({ onClose, navigate }) {
   const goTo = (view) => {
     onClose();
     navigate(view);
+  };
+
+  const goToProfile = async () => {
+    let nextProfile = profile;
+    if (!nextProfile?.username) {
+      const { data } = await supabase.auth.getSession();
+      nextProfile = await ensureUserProfile(data.session?.user);
+    }
+
+    onClose();
+    if (nextProfile?.username) {
+      navigateToPath(`/@${nextProfile.username}`, "profile");
+    } else {
+      navigate("settings");
+    }
   };
 
   return (
@@ -1002,6 +1035,17 @@ function AccountDrawer({ onClose, navigate }) {
         </div>
 
         <nav className="mt-8 grid gap-3">
+          <button
+            type="button"
+            onClick={goToProfile}
+            className="rounded-lg border border-cyan-300/30 bg-cyan-950/20 px-4 py-4 text-left transition hover:border-cyan-200/70 hover:bg-cyan-950/30"
+          >
+            <span className="block text-lg font-black text-white">My Profile</span>
+            <span className="mt-1 block text-sm text-zinc-400">
+              {profile?.username ? `View @${profile.username}` : "View your public page"}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => goTo("tests")}
@@ -1060,7 +1104,7 @@ function AccountDrawer({ onClose, navigate }) {
   );
 }
 
-function Hub({ navigate }) {
+function Hub({ navigate, navigateToPath }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const openAccount = async () => {
@@ -1128,7 +1172,13 @@ function Hub({ navigate }) {
         </div>
       </section>
 
-      {menuOpen && <AccountDrawer onClose={() => setMenuOpen(false)} navigate={navigate} />}
+      {menuOpen && (
+        <AccountDrawer
+          onClose={() => setMenuOpen(false)}
+          navigate={navigate}
+          navigateToPath={navigateToPath}
+        />
+      )}
     </main>
   );
 }
@@ -6259,7 +6309,7 @@ export default function App() {
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 text-white">
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(135deg,#050505_0%,#09090b_55%,#18181b_100%)]" />
       {view === "landing" && <LoginPage navigate={navigate} isLanding />}
-      {view === "dashboard" && <Hub navigate={navigate} />}
+      {view === "dashboard" && <Hub navigate={navigate} navigateToPath={navigateToPath} />}
       {view === "calculator" && <FineCalculator navigate={navigate} />}
       {view === "calculatorSaves" && <CalculatorSavesPage navigate={navigate} />}
       {view === "profile" && (
